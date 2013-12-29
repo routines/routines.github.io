@@ -27,7 +27,7 @@
 (function(global) {
     'use strict';
 
-    var sentinel = Symbol('Z');
+    var sentinel = Symbol('Ω');
 
     if (global.async) {
         // Prevents from being executed multiple times.
@@ -36,8 +36,12 @@
 
 
     function isGenerator(x) {
-        var fn = Function.isGenerator;
-        return fn ? fn.call(x) : true;
+        return true;
+        // Don't do real checking yet, because it fails
+        // in Firefox when using traceur for simulating
+        // generators.
+        // var fn = Function.isGenerator;
+        // return fn && fn.call(x);
     }
 
     /**
