@@ -27,7 +27,7 @@
 (function(global) {
     'use strict';
 
-    var sentinel = Symbol('Ω');
+    var sentinel = Symbol('Z');
 
     if (global.async) {
         // Prevents from being executed multiple times.
