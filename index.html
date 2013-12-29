@@ -254,12 +254,12 @@
             <div class="col-md-8">
 
               <pre class="condensed">
-function searchWikipedia(term) {
-    var url = 'http://en.wikipedia.org/w/api.php?' +
-              'action=opensearch&format=json&callback=?&search=' +
-              encodeURIComponent(term);
-    return jsonp(url);
-}                
+    function searchWikipedia(term) {
+        var url = 'http://en.wikipedia.org/w/api.php?' +
+                  'action=opensearch&format=json&callback=?&search=' +
+                  encodeURIComponent(term);
+        return jsonp(url);
+    }                
               </pre>
 
             </div>
