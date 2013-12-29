@@ -1,10 +1,3 @@
-if (!$async) {
-    // It seems that traceur *sometimes*, fails to properly insert our
-    // code from async-es.js
-    // When that happens, we simply ask the user to reload the page.
-    alert('An unexpected error occurred. Please reload the page.');
-}
-
 (function(Channel, go, listen, unique, pace, jsonp) {
 
     var input = document.getElementById('searchtext'),
