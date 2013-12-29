@@ -23,7 +23,7 @@
     <div class="container">
 
       <div class="jumbotron">
-        <h1>Async code</h1>
+        <h1>Straight forward Async Javascript</h1>
         <p class="lead">
           You want to build an autocomplete search field for Wikipedia.
         </p>
@@ -156,7 +156,7 @@
         </div>
       </div>
 
-      <div id="detour" class="panel panel-primary">
+      <div id="detour" class="panel panel-info">
         <div class="panel-heading">
           <h3>4. detour: goroutines + channels</h3>
         </div>
@@ -173,7 +173,7 @@
             but they don't change the fundamental nature of events.
             Moreover, these solutions introduce new (proprietary)
             mechanisms for control flow, including error handling,
-            (e.g. <i>then</i>, <i>all</i>, <i>distinctUntilChanged</i>etc.),
+            (e.g. <i>then</i>, <i>all</i>, <i>distinctUntilChanged</i>, etc.),
             even though control flow already exists at the language level! 
           </p>
 
@@ -187,11 +187,6 @@
             channels provide a means for two goroutines to communicate & synchronize.
           </p>
 
-          <p>
-            Their design means that code written on top of Goroutines and Channels is more straight
-            forward.
-          </p>
-
         </div>
       </div>
 
@@ -201,6 +196,155 @@
         </div>
 
         <div class="panel-body">
+
+          <p>
+            Goroutines and Channels make it possible to write straight forward async
+            code that is easy to follow using standard JavaScript control flow constructs,
+            including those for error handling (try/catch).
+          </p>
+
+          <blockquote>
+            To implement goroutines and channels in JavaScript, async.es relies on Generators, which
+            is a new language feature in ES6. For it to work in current browsers, we use Google Traceur
+            to transpile ES6 on the fly to ES5 (you can also transpile code as part of your build process).
+          </blockquote>
+
+          <p>
+            Let's step through the code.
+          </p>
+
+
+          <div class="row">
+            <div class="col-md-8">
+              <pre>
+    var input = document.getElementById('searchtext'),
+        results = document.getElementById('results');
+
+    function clearResults() {
+        results.innerHTML = '';
+    }
+
+    function showResults(terms) {
+        var i, len, p;
+
+        clearResults();
+        
+        for (i = 0, len = terms.length; i < len; i++) {
+            p = document.createElement('p');
+            p.innerHTML = terms[i];
+            results.appendChild(p);
+        }                
+    }
+
+    function showError(err) {
+        results.innerHTML = '<h1p>Error:</h1>' + err;
+    }
+
+              </pre>
+            </div>
+
+            <div class="col-md-4">
+              These functions display the results. Nothing unusual here.
+            </div>
+          </div>
+
+
+          <div class="row">
+
+            <div class="col-md-8">
+
+              <pre class="condensed">
+function searchWikipedia(term) {
+    var url = 'http://en.wikipedia.org/w/api.php?' +
+              'action=opensearch&format=json&callback=?&search=' +
+              encodeURIComponent(term);
+    return jsonp(url);
+}                
+              </pre>
+
+            </div>
+
+            <div class="col-md-4">
+              The <code>searchWikipedia</code> function returns a channel that will get results
+              from the specified jsonp request. The channel is created by calling the <code>jsonp</code> utility function in async.es.
+            </div>              
+          </div>
+
+
+          <div class="row">
+            <div class="col-md-8">
+              <pre>
+
+    go(function* () {
+       var  keyup = listen(input, 'keyup'),
+            pacedKeyup = pace(keyup, 300),
+            evt, data, res, text, previousText,
+            minLength;
+        
+        while (true) {
+            evt = yield pacedKeyup.get();
+            text = evt.target.value;
+            minLength = text.length > 2;
+
+            if (minLength && text !== previousText) {
+                data = yield searchWikipedia(text).get();
+                
+                if (data.error) {
+                    showError(JSON.stringify(data.error));
+                } else {                    
+                    if (data[0] && data[1]) {
+                        showResults(data[1]);
+                    }
+                }
+                
+            } else if (!minLength) {
+                clearResults();
+            }
+
+            previousText = text;
+        }
+    });
+
+              </pre>
+            </div>
+
+            <div class="col-md-4">
+              <p>
+                We kick off a goroutine by calling <code>go(someFunction)</code>.
+              </p>
+
+              <p>
+                In the goroutine, we create a channel with <code>listen</code>on which we'll receive
+                keyup events. We pipe that channel through <code>pace</code> so that
+                if the user types faster than 300ms, we don't get bombarded.
+              </p>
+
+              <p>
+                Now for some interesting bits. We create a <code>while (true)</code> loop (afterall,
+                the user must be able enter text an infinite number of times).
+              </p>
+
+              <p>
+                Next we <b>wait</b> for a keyup event in the channel: <code>yield pacedKeyup.get()</code>.                
+              </p>
+
+              <p>
+                Once we receive a keyup event, we do some checking to make sure it passes constraints
+                like minimum length etc.
+              </p>
+
+              <p>
+                Finally we shoot a request to the Wikipedia API and once again <b>wait</b> for the results <code>yield searchWikipedia(text).get()</code>
+                Again, we can halt execution of the current goroutine because other goroutines
+                run concurrently, meaning the rest of the program remains responsive.
+              </p>
+                
+            </div>
+
+
+          </div>
+
+
         </div>
         
         

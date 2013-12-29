@@ -1,5 +1,4 @@
 body {
-
 }
 
 .jumbotron {
@@ -7,10 +6,14 @@ body {
 }
 
 .container {
-    max-width: 730px;
+    max-width: 900px;
 }
 
 
 #results {
+    font-size: 12px;
+}
+
+pre.condensed {
     font-size: 12px;
 }
