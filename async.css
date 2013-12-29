@@ -1,0 +1,16 @@
+body {
+
+}
+
+.jumbotron {
+    font-size: 18px;
+}
+
+.container {
+    max-width: 730px;
+}
+
+
+#results {
+    font-size: 12px;
+}

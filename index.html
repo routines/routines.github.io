@@ -1,1 +1,215 @@
-async.es
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="async.css">
+
+    <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+    <script src="traceur/traceur.js"></script>
+    <script src="traceur/bootstrap.js"></script>
+  </head>
+
+  <body>
+    <div class="navbar navbar-default">
+
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">async.es</a>
+      </div>
+      
+    </div>
+
+    <div class="container">
+
+      <div class="jumbotron">
+        <h1>Async code</h1>
+        <p class="lead">
+          You want to build an autocomplete search field for Wikipedia.
+        </p>
+
+        <p>
+          As the user types characters, the program should get results from Wikipedia
+          and display them below the input field.
+        </p>
+
+        <div class="well well-lg">
+          Give it a try:
+
+          <div id="search">
+            <input id="searchtext" class="form-control" placeholder="search"></input>
+            <div id="results"></div>
+          </div>
+        </div>
+
+        <span class="label label-success">
+          Async.js is a tiny library that makes it easy to write asynchronous programs
+          in JavaScript
+        </span>
+
+      </div>
+
+
+      <div id="problem" class="panel panel-primary">
+        <div class="panel-heading">
+          <h3>1. problem</h3>
+        </div>
+
+        <div class="panel-body">
+
+          <p>
+            Because you want a pleasant user experience you decide the program
+            should:
+          </p>
+          <dl class="dl-horizontal">
+            <dt>responsive</dt>
+            <dd>display results as the user enters characters</dd>
+
+            <dt>correct</dt>
+            <dd>
+              display the correct results, even if API requests return out of order
+              (e.g. "abso" might return before "abs" does)
+            </dd>
+
+            <dt>efficient</dt>
+            <dd>not make unnecessary API requests if the user types quickly</dd>
+
+            <dt>unique</dt>
+            <dd>
+              not issue multiple consecutive API requests for the same search input (the keyup
+              event might fire without the text changing)
+            </dd>
+
+
+            <dt>minimum length</dt>
+            <dd>only give suggestions once more than 2 characters are entered</dd>
+
+          </dl>
+
+        </div>
+      </div>
+
+      <div id="program-structure" class="panel panel-primary">
+        <div class="panel-heading">
+          <h3>2. program structure</h3>
+        </div>
+
+        <div class="panel-body">
+          Since listening to key input and making HTTP requests involve callbacks you
+          suspect the general shape of your program will look something like:
+
+          <pre>
+            keyup(function(event) {
+                $.getJSON(searchUrl + input.text, function(data) {
+                    displayResults(data);
+                });        
+            });
+          </pre>
+
+          But crafting a proper solution that deals with out of order results,
+          making effecient API requests, and keeping the UI responsive becomes
+          tricky because you need to orchestrate control flow across asynchronous callbacks.
+
+          Is there another way?
+        </div>
+      </div>
+
+      <div id="pseudocode" class="panel panel-primary">
+        <div class="panel-heading">
+          <h3>3. pseudocode</h3>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            It is often useful to outline, without too much specificity, the algorithm
+            that solves the problem in a way that is programming language agnostic.
+          </p>
+
+          <p>
+            Ignoring asynchrony, that might looking something like:
+          </p>
+
+          <pre>
+            loop:
+                // if user types fast, we only care about last event
+                event = last(getKeyUp()) 
+
+                text = input.text
+                minLength = text.length > 2
+
+                if (minLength & text != previousText):
+                    data = searchWikipedia(text) 
+                    if (data.error) 
+                        showError(data.error)
+                    else 
+                        showResults(data)
+                else if not minLength:
+                    clearResults()
+
+                previousText = text
+          </pre>
+
+          This looks like it might do the job, but implementing this in JavaScript
+          requires us to deal with callbacks and it is not clear how that can be fitted
+          into the above pseudocode, without obscuring the <b>essence</b> of the solution.
+
+        </div>
+      </div>
+
+      <div id="detour" class="panel panel-primary">
+        <div class="panel-heading">
+          <h3>4. detour: goroutines + channels</h3>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            One of the problems with callbacks/events is that they intertwine communcation
+            and control flow. This makes it difficult to synchronize between two asynchronous
+            code blocks.
+          </p>
+
+          <p>
+            There are solutions to make callback code cleaner (Promises, Rx/Observables, FRP, etc.)
+            but they don't change the fundamental nature of events.
+            Moreover, these solutions introduce new (proprietary)
+            mechanisms for control flow, including error handling,
+            (e.g. <i>then</i>, <i>all</i>, <i>distinctUntilChanged</i>etc.),
+            even though control flow already exists at the language level! 
+          </p>
+
+          <p>
+            It turns out there is another way.
+          </p>
+
+          <p>
+            The Go programming language provides Goroutines and Channels for building
+            concurrent systems. Goroutines execute concurrently with other goroutines and
+            channels provide a means for two goroutines to communicate & synchronize.
+          </p>
+
+          <p>
+            Their design means that code written on top of Goroutines and Channels is more straight
+            forward.
+          </p>
+
+        </div>
+      </div>
+
+      <div id="solution" class="panel panel-primary">
+        <div class="panel-heading">
+          <h3>5. solution</h3>
+        </div>
+
+        <div class="panel-body">
+        </div>
+        
+        
+      </div>
+
+    </div>
+
+    <script src="async-es.js" type="text/traceur"></script>
+    <script src="autocomplete.js" type="text/traceur"></script>
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
+  </body>
+
+</html>
