@@ -27,17 +27,20 @@
         <div class="well well-lg">
           <p class="lead">
             <span class="label label-success">Async.es</span> is a minimal library that
-            makes it possible to write <b>plain</b> JavaScript yet <b>easily coordinate</b> complex
-            simultaneous events and other flows of data without writing a single callback or chained
-            function. As a result, stack traces are crystal clear so
-            debugging is vastly improved. You also get to keep try/catch!
+            makes it easy to <b>coordinate complex concurrent</b> streams of events and other data
+            using <b>plain</b> JavaScript. No callbacks or chained functions in sight.
+
+          <p>As a result, stack traces are crystal clear so debugging is easy.
+            You also get to keep try/catch!
+          </p>
           </p>
         </div>
 
-        <p>
-          Promises and RxJS make it easier to deal with callback hell, race conditions,
-          and code coordination, but require you to learn esoteric control flow
-          mechanisms instead of using those already in JavaScript.
+        <p class="small">
+          Although Promises and RxJS also try to make it easier to deal with callback hell,
+          race conditions, and code coordination, they suffer from the same problem as callbacks/events
+          in that they intertwine control flow and communication. This results in esoteric
+          code that is harder to grok.
         </p>
 
 
