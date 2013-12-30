@@ -23,336 +23,180 @@
     <div class="container">
 
       <div class="jumbotron">
-        <h2>Straightforward Async Javascript</h2>
-        <p class="lead">
-          Let's say you want to build an autocomplete search field for Wikipedia.
-        </p>
+        <h2>Coordinating Concurrent Code</h2>
+        <div class="well well-lg">
+          <p class="lead">
+            <span class="label label-success">Async.es</span> is a minimal library that
+            makes it possible to write <b>plain</b> JavaScript yet <b>easily coordinate</b> complex
+            simultaneous events and other flows of data without writing a single callback or chained
+            function. As a result, stack traces are crystal clear so
+            debugging is vastly improved. You also get to keep try/catch!
+          </p>
+        </div>
 
         <p>
-          As the user types characters, the program should get results from Wikipedia
-          and display them below the input field.
+          Promises and RxJS make it easier to deal with callback hell, race conditions,
+          and code coordination, but require you to learn esoteric control flow
+          mechanisms instead of using those already in JavaScript.
         </p>
 
-        <div class="well well-lg">
-          Give it a try:
 
-          <div id="search">
-            <input id="searchtext" class="form-control" placeholder="search"></input>
-            <div id="results"></div>
-          </div>
-        </div>
-
-        <span class="label label-success">
-          Async.es is a tiny library that makes it easy to write asynchronous programs
-          in JavaScript
-        </span>
 
       </div>
 
-
-      <div id="problem" class="panel panel-primary">
+      <div class="panel panel-primary">
         <div class="panel-heading">
-          <h4>1. problem</h4>
+          <h4>Coordinating concurrent activities using Jobs and Pipes</h4>
         </div>
-
-        <div class="panel-body">
-
-          <p>
-            Because you want a pleasant user experience you decide the program
-            should:
-          </p>
-          <dl class="dl-horizontal">
-            <dt>responsive</dt>
-            <dd>display results as the user enters characters</dd>
-
-            <dt>correct</dt>
-            <dd>
-              display the correct results, even if API requests return out of order
-              (e.g. "abso" might return before "abs" does)
-            </dd>
-
-            <dt>efficient</dt>
-            <dd>not make unnecessary API requests if the user types quickly</dd>
-
-            <dt>unique</dt>
-            <dd>
-              not issue multiple consecutive API requests for the same search input (the keyup
-              event might fire without the text changing)
-            </dd>
-
-
-            <dt>minimum length</dt>
-            <dd>only give suggestions once more than 2 characters are entered</dd>
-
-          </dl>
-
-        </div>
-      </div>
-
-      <div id="program-structure" class="panel panel-primary">
-        <div class="panel-heading">
-          <h4>2. program structure</h4>
-        </div>
-
-        <div class="panel-body">
-          Since listening to key input and making HTTP requests involve callbacks you
-          suspect the general shape of your program will look something like:
-
-          <pre>
-            keyup(function(event) {
-                $.getJSON(searchUrl + input.text, function(data) {
-                    displayResults(data);
-                });        
-            });
-          </pre>
-
-          But crafting a proper solution that deals with out of order results,
-          making effecient API requests, and keeping the UI responsive becomes
-          tricky because you need to orchestrate control flow across asynchronous callbacks.
-
-          Is there another way?
-        </div>
-      </div>
-
-      <div id="pseudocode" class="panel panel-primary">
-        <div class="panel-heading">
-          <h4>3. pseudocode</h4>
-        </div>
-
         <div class="panel-body">
           <p>
-            It is often useful to outline, without too much specificity, the algorithm
-            that solves the problem in a way that is programming language agnostic.
+            <b>Jobs</b> and <b>Pipes</b> make programs with concurrent behavior (e.g. user can navigate through a list while
+            data gets downloaded) much easier to write and understand because you can use standard control
+            flow mechanisms like <code>for</code> and <code>while</code> loops, conditionals like <code>if/then/else</code>
+            and <code>case</code>, higher order functions like <code>map</code> and <code>reduce</code> and
+            error handling using <code>try/catch</code>.
+          </p>
+
+          <hr/>
+
+          <h4>Job</h4>
+          <p>
+            A Job is a function executing concurrently with other Jobs.
+            Start a Job by calling it with the <code>job</code> function:
+            <pre>
+              job(someFunction);
+            </pre>
+            
+            You can also pass a function literal, e.g.
+            <pre>
+              job(function* (x, y) {
+                  var answer = x + y;
+                  console.log('answer=' + answer);
+              });
+            </pre>
+            Notice that the function is declared with an asterisk <code>function*</code>. This makes it a Generator function, which
+            is new in the upcoming version of JavaScript, but that can be used today by transpiling your code to ES5 using Google Traceur.
+            (you can declare Generators in NodeJS 0.11 when running with the -harmony flag).
+          </p>
+
+          <hr/>
+
+          <h4>Pipe</h4>
+          <p>
+            A Pipe is created with <code>new Pipe()</code> and it provides an API for sending/receiving data between two Jobs. Pipes are
+            unbuffered/synchronous which has the nice effect that they combine communication (data exchange) with synchronization,
+            guaranteeing that two Jobs are in a known state at any given time.
           </p>
 
           <p>
-            Ignoring asynchrony, that might looking something like:
-          </p>
-
-          <pre>
-            loop:
-                // if user types fast, we only care about last event
-                event = last(getKeyUp()) 
-
-                text = input.text
-                minLength = text.length > 2
-
-                if (minLength & text != previousText):
-                    data = searchWikipedia(text) 
-                    if (data.error) 
-                        showError(data.error)
-                    else 
-                        showResults(data)
-                else if not minLength:
-                    clearResults()
-
-                previousText = text
-          </pre>
-
-          This looks like it might do the job, but implementing this in JavaScript
-          requires us to deal with callbacks and it is not clear how that can be fitted
-          into the above pseudocode, without obscuring the <b>essence</b> of the solution.
-
-        </div>
-      </div>
-
-      <div id="detour" class="panel panel-info">
-        <div class="panel-heading">
-          <h4>4. detour: goroutines + channels</h4>
-        </div>
-
-        <div class="panel-body">
-          <p>
-            One of the problems with callbacks/events is that they intertwine communcation
-            and control flow. This makes it difficult to synchronize between two asynchronous
-            code blocks.
-          </p>
-
-          <p>
-            There are solutions to make callback code cleaner (Promises, Rx/Observables, FRP, etc.)
-            but they don't change the fundamental nature of events.
-            Moreover, these solutions introduce new (proprietary)
-            mechanisms for control flow, including error handling,
-            (e.g. <i>then</i>, <i>all</i>, <i>distinctUntilChanged</i>, etc.),
-            even though control flow already exists at the language level! 
-          </p>
-
-          <p>
-            It turns out there is another way.
-          </p>
-
-          <p>
-            The Go programming language provides Goroutines and Channels for building
-            concurrent systems. Goroutines execute concurrently with other goroutines and
-            channels provide a means for two goroutines to communicate & synchronize.
+            A Job can put data into a Pipe by calling <code>yield pipe.put('someData')</code>, and another Job can get data by calling
+            <code>yield pipe.get()</code>. The <code>yield</code> keyword causes the Job to suspend executation until another Job issues
+            an opposite request on the same Pipe. When this happens, the Jobs are said to rendezvous; they are now synchronized, and will
+            each continue code execution until they reach another <code>yield</code> statement.
           </p>
 
         </div>
       </div>
 
-      <div id="solution" class="panel panel-primary">
+      <div class="panel panel-primary">
         <div class="panel-heading">
-          <h4>5. solution</h4>
+          <h4>two examples</h4>
         </div>
 
         <div class="panel-body">
-
+          <h4>1. four concurrent jobs</h4>
           <p>
-            Goroutines and Channels make it possible to write straightforward async
-            code that is easy to follow using standard JavaScript control flow constructs,
-            including those for error handling (try/catch).
+            This example was inpired by David Nolen's <a href="http://swannodette.github.io/2013/07/12/communicating-sequential-processes/">example</a> for Clojure(Script)'s core.async.
           </p>
-
-          <blockquote>
-            To implement goroutines and channels in JavaScript, async.es relies on Generators, which
-            is a new language feature in ES6. For it to work in current browsers, we use Google Traceur
-            to transpile ES6 on to ES5.
-          </blockquote>          
-
-          <p>
-            You can see the code for async.es <a href="https://github.com/async-es/async-es/blob/master/async-es.js">here</a>.
-            And the autocomplete code is <a href="https://github.com/async-es/async-es.github.io/blob/master/autocomplete.js">here</a>.
-          </p>
-
-          <p>
-            Let's step through the autocomplete program:
-          </p>
-
-
           <div class="row">
-            <div class="col-md-8">
+            <div class="col-md-6">
               <pre>
-    var input = document.getElementById('searchtext'),
-        results = document.getElementById('results');
+        var pipe = new $async.Pipe(),
+            timeout = $async.timeout,
+            job = $async.job;
 
-    function clearResults() {
-        results.innerHTML = '';
-    }
+            
+        job(function* () {
+            while (true) {
+                yield timeout(250).get();
+                yield pipe.put(1);
+            }   
+        });
 
-    function showResults(terms) {
-        var i, len, p;
-
-        clearResults();
-        
-        for (i = 0, len = terms.length; i < len; i++) {
-            p = document.createElement('p');
-            p.innerHTML = terms[i];
-            results.appendChild(p);
-        }                
-    }
-
-    function showError(err) {
-        results.innerHTML = '<h1p>Error:</h1>' + err;
-    }
-
-              </pre>
-            </div>
-
-            <div class="col-md-4">
-              These functions display the results. Nothing unusual here.
-            </div>
-          </div>
-
-
-          <div class="row">
-
-            <div class="col-md-8">
-
-              <pre class="condensed">
-    function searchWikipedia(term) {
-        var url = 'http://en.wikipedia.org/w/api.php?' +
-                  'action=opensearch&format=json&callback=?&search=' +
-                  encodeURIComponent(term);
-        return jsonp(url);
-    }                
-              </pre>
-
-            </div>
-
-            <div class="col-md-4">
-              The <code>searchWikipedia</code> function returns a channel that will get results
-              from the specified jsonp request. The channel is created by calling the <code>jsonp</code> utility function in async.es.
-            </div>              
-          </div>
-
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-
-    go(function* () {
-       var  keyup = listen(input, 'keyup'),
-            pacedKeyup = pace(keyup, 300),
-            evt, data, res, text, previousText,
-            minLength;
-        
-        while (true) {
-            evt = yield pacedKeyup.get();
-            text = evt.target.value;
-            minLength = text.length > 2;
-
-            if (minLength && text !== previousText) {
-                data = yield searchWikipedia(text).get();
-                
-                if (data.error) {
-                    showError(JSON.stringify(data.error));
-                } else {                    
-                    if (data[0] && data[1]) {
-                        showResults(data[1]);
-                    }
-                }
-                
-            } else if (!minLength) {
-                clearResults();
+        job(function* () {
+            while (true) {
+                yield timeout(1000).get();
+                yield pipe.put(2);
             }
+        });
 
-            previousText = text;
-        }
-    });
+        job(function* () {
+            while (true) {
+                yield timeout(1500).get();
+                yield pipe.put(3);
+            }
+        });
 
+        job(function* () {
+            var data;
+            while (true) {
+                data = yield pipe.get();
+                console.log(data);            
+            }
+        });
               </pre>
             </div>
 
-            <div class="col-md-4">
-              <p>
-                We kick off a goroutine by calling <code>go(someFunction)</code>.
+            <div class="col-md-6">
+              <p>We create a new pipe that the two jobs will use to communicate & synchronize on.</p>
+              <p><code>timeout</code>is a standard pipe that waits for the specified amount of time
+                before it puts data on the pipe, signalling to a waiting job that the time as expired.
+              </p>
+              <hr/>
+
+              <p>Now we start our first job. It runs indefinitely (<code>while (true)</code>) and is pretty
+                simple: every 250ms it puts the value "1" in the pipe.
               </p>
 
-              <p>
-                In the goroutine, we create a channel with <code>listen</code>on which we'll receive
-                keyup events. We pipe that channel through <code>pace</code> so that
-                if the user types faster than 300ms, we don't get bombarded.
+              <hr/>
+
+              <p>Similarly, a second and third job, with 1000ms and 1500ms cadences respectively  at
+                which it puts values into the pipe.
               </p>
 
-              <p>
-                Now for some interesting bits. We create a <code>while (true)</code> loop (afterall,
-                the user must be able enter text an infinite number of times).
-              </p>
+              <hr/>
 
               <p>
-                Next we <b>wait</b> for a keyup event in the channel: <code>yield pacedKeyup.get()</code>.                
+                The fourth job also runs indefinitely, but it waits until it can get data from the pipe and
+                then simply displays it to the user.
               </p>
 
-              <p>
-                Once we receive a keyup event, we do some checking to make sure it passes constraints
-                like minimum length etc.
-              </p>
-
-              <p>
-                Finally we shoot a request to the Wikipedia API and once again <b>wait</b> for the results <code>yield searchWikipedia(text).get()</code>
-                Again, we can halt execution of the current goroutine because other goroutines
-                run concurrently, meaning the rest of the program remains responsive.
-              </p>
-                
+              <div id="eg1out" class="well"></div>
             </div>
-
-
+            
           </div>
+
+          <h4>2. coordinating user input events and API requests</h4>
+          <p>
+            Building an autocomplete search input that is responsive, efficient, and correct can be tricky.
+            This <a href="autocomplete.html">example</a> shows how trivially you can do it with async.es.
+          </p>
 
 
         </div>
-        
-        
+
+      </div>
+
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>get started</h4>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            Get the <a href="https://github.com/async-es/async-es">code</a>.
+          </p>
+        </div>
       </div>
 
     </div>
@@ -360,7 +204,7 @@
     <a href="https://github.com/async-es/async-es"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
 
 
-    <script src="autocomplete.es5.js"></script>
+    <script src="index.es5.js"></script>
     <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
   </body>
 

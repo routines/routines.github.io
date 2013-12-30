@@ -45,13 +45,13 @@
     }
 
     /**
-     * Kick off a goroutine. A goroutine is a generator that runs concurrently
-     * with other goroutines.
+     * Kick off a job. A job is a generator that runs concurrently
+     * with other jobs.
      *
-     * To communicate and synchronize with another goroutine, communicate via a
-     * Channel.
+     * To communicate and synchronize with another job, communicate via a
+     * Pipe.
      */
-    function go(routine, ...args) {
+    function job(routine, ...args) {
         var task,
             next;
 
@@ -76,12 +76,12 @@
     }
 
     /**
-     * A channel provides a way for two goroutines to communicate data + synchronize their execution.
+     * A channel provides a way for two jobs to communicate data + synchronize their execution.
      *
-     * One goroutine can send data by calling "yield channel.put(data)" and another goroutine can
+     * One job can send data by calling "yield channel.put(data)" and another job can
      * receive data by calling "yield channel.get()".
      */
-    class Channel {
+    class Pipe {
         constructor() {
             this.synching = false;
             this.inbox = [];
@@ -95,11 +95,11 @@
         }
 
         /**
-         * Call "yield channel.put(data)" from a goroutine (the sender) to put data in the channel.
+         * Call "yield channel.put(data)" from a job (the sender) to put data in the channel.
          *
-         * The put method will then try to rendezvous with a receiver goroutine, if any.
+         * The put method will then try to rendezvous with a receiver job, if any.
          * If there is no receiver waiting for data, the sender will pause until another
-         * goroutine calls "yield channel.get()", which will then trigger a rendezvous.
+         * job calls "yield channel.get()", which will then trigger a rendezvous.
          */
         put(data) {
             return function(resume) {
@@ -110,11 +110,11 @@
         }
 
         /**
-         * Call "yield channel.get()" from a goroutine (the receiver) to get data from the channel.
+         * Call "yield channel.get()" from a job (the receiver) to get data from the channel.
          *
-         * The get method will then try to rendezvous with a sender goroutine, if any.
+         * The get method will then try to rendezvous with a sender job, if any.
          * If there is no sender waiting for the data it sent to be delivered, the receiver will
-         * pause until another goroutine calls "yield channel.put(data)", which will then trigger
+         * pause until another job calls "yield channel.put(data)", which will then trigger
          * a rendezvous.
          */
         get() {
@@ -126,17 +126,17 @@
         }
 
         /**
-         * A channel is a rendezvous point for two otherwise independently executing goroutines.
+         * A channel is a rendezvous point for two otherwise independently executing jobs.
          * Such communication + synchronization on a channel requires a sender and receiver.
          &
-         * A goroutine sends data to a channel using "yield channel.put(data)".
-         * Another goroutine receives data from a channel using "yield channel.get()".
+         * A job sends data to a channel using "yield channel.put(data)".
+         * Another job receives data from a channel using "yield channel.get()".
          *
-         * Once both a sender goroutine and a receiver goroutine are waiting on the channel,
+         * Once both a sender job and a receiver job are waiting on the channel,
          * the _rendezvous method transfers the data in the channel to the receiver and consequently
-         * synchronizes the two waiting goroutines.
+         * synchronizes the two waiting jobs.
          *
-         *  Once synchronized, the two goroutines continue execution. 
+         *  Once synchronized, the two jobs continue execution. 
          */
         _rendezvous() {
             var { synching, inbox, outbox } = this,
@@ -153,14 +153,14 @@
                 while ((senderWaiting = inbox.length > 0) &&
                        (receiverWaiting = outbox.length > 0)) {  
 
-                    // Get the data that the sender goroutine put in the channel
+                    // Get the data that the sender job put in the channel
                     data = inbox.shift();
                     
                     // Get the method to notify the sender once the data has been
-                    // delivered to the receiver goroutine
+                    // delivered to the receiver job
                     notify = inbox.shift();
 
-                    // Get the method used to send the data to the receiver goroutine.
+                    // Get the method used to send the data to the receiver job.
                     send = outbox.shift();
                     
                     // Send the data
@@ -177,7 +177,7 @@
     }
 
 
-    class EventChannel extends Channel {
+    class EventPipe extends Pipe {
         constructor(el, type, handler) {
             el.addEventListener(type, handler);
             super();
@@ -191,16 +191,16 @@
 
     
     ///
-    /// Channel producers
+    /// Pipe producers
     ///
     
 
     function timeout(ms, interruptor) {
         // TODO: model timeout as a process
-        var output = new Channel();
+        var output = new Pipe();
 
         setTimeout(function() {
-            go(function* () {
+            job(function* () {
                 yield output.put(ms);
             });
         }, ms);
@@ -211,19 +211,19 @@
 
     function listen(el, type) {
         var handler = (e) => {
-                go(function* () {
+                job(function* () {
                     yield output.put(e);
                 });
         };
 
-        var output = new EventChannel(el, type, handler);
+        var output = new EventPipe(el, type, handler);
         return output;
     }
 
     function jsonp(url) {
-        var output = new Channel();
+        var output = new Pipe();
         $.getJSON(url, (data)=> {
-            go(function* () {
+            job(function* () {
                 yield output.put(data);
             });
         });
@@ -231,8 +231,8 @@
     }
 
     function lazyseq(count, fn, ...args) {
-        var output = new Channel();
-        go(function* () {
+        var output = new Pipe();
+        job(function* () {
             var data,
                 i = 0;
             while (0 < count--) {
@@ -248,14 +248,14 @@
 
     
     ///
-    /// Channel transformers
+    /// Pipe transformers
     ///
     
 
     function unique(channel) {
-        var output = new Channel();
+        var output = new Pipe();
         
-        go(function* () {
+        job(function* () {
             var isFirstData = true,
                 data,
                 lastData;
@@ -277,9 +277,9 @@
     }
 
     function pace(channel, ms) {
-        var output = new Channel();
+        var output = new Pipe();
         
-        go(function* () {
+        job(function* () {
             var timeoutId,
                 data;
             
@@ -288,7 +288,7 @@
                 clearTimeout(timeoutId);
 
                 timeoutId = setTimeout(() => {
-                    go(function* () {
+                    job(function* () {
                         yield output.put(data);
                     });
                 }, ms);
@@ -303,18 +303,18 @@
 
     
     ///
-    /// Channel coordination
+    /// Pipe coordination
     ///
 
     function select(cases) {
-        var done = new Channel(),
+        var done = new Pipe(),
             remaining = cases.length,
             promise;
 
         promise = new Promise((resolve) => {
 
             cases.forEach(function(item) {
-                go(function* () {
+                job(function* () {
                     var channel = item.channel,
                         response = item.response,
                         data;
@@ -326,7 +326,7 @@
             });
 
 
-            go(function* () {
+            job(function* () {
                 while (remaining > 0) {
                     yield done.get();
                     remaining = remaining - 1;
@@ -345,20 +345,20 @@
     
 
     global.$async = {
-        go: go,
-        Channel: Channel,
+        job: job,
+        Pipe: Pipe,
 
-        // Channel producers
+        // Pipe producers
         timeout: timeout,
         listen: listen,
         jsonp: jsonp,
         lazyseq: lazyseq,
 
-        // Channel transformers
+        // Pipe transformers
         unique: unique,
         pace: pace,
 
-        // Channel coordination
+        // Pipe coordination
         sentinel: sentinel,
         select: select, // Rewrite as syntax using sweet.js?
         range: null // Implement as syntax using sweet.js?

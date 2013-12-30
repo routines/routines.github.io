@@ -25,3 +25,16 @@ body {
 pre.condensed {
     font-size: 12px;
 }
+
+
+.proc-1 {
+    color: #ff6666;
+}
+
+.proc-2 {
+    color: #66ff66
+}
+
+.proc-3 {
+    color: #6666ff;
+}
