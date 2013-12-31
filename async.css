@@ -1,0 +1,40 @@
+h2 {
+    font-size: 40px;
+}
+
+input {
+    autocomplete: 'off';
+}
+
+body {
+}
+
+.jumbotron {
+    font-size: 18px;
+}
+
+.container {
+    max-width: 900px;
+}
+
+
+#results {
+    font-size: 12px;
+}
+
+pre.condensed {
+    font-size: 12px;
+}
+
+
+.proc-1 {
+    color: #ff6666;
+}
+
+.proc-2 {
+    color: #66ff66
+}
+
+.proc-3 {
+    color: #6666ff;
+}

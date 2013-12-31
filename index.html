@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>async.es — coordinating concurrent code</title>
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="async.css">
+
+    <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+    <script src="traceur/traceur.js"></script>
+    <script src="traceur/bootstrap.js"></script>
+  </head>
+
+  <body>
+    <div class="navbar navbar-default">
+
+      <div class="navbar-header">
+        <a class="navbar-brand" href="https://github.com/async-es/async-es">async.es</a>
+      </div>
+      
+    </div>
+
+    <div class="container">
+
+      <div class="jumbotron">
+        <h2>Coordinating Concurrent Code</h2>
+        <div class="well well-lg">
+          <p class="lead">
+            <span class="label label-success">Async.es</span> is a minimal library that
+            makes it easy to <b>coordinate complex concurrent</b> streams of events and other data
+            using <b>plain</b> JavaScript. No callbacks or chained functions in sight.
+
+          <p>
+            As a result, stack traces are crystal clear so debugging is easy.
+            You also get to keep try/catch!
+          </p>
+          </p>
+        </div>
+
+        <p class="small">
+          Although Promises and RxJS also try to make it easier to deal with callback hell,
+          race conditions, and code coordination, they suffer from the same problem as callbacks/events
+          in that they intertwine control flow and communication. This results in esoteric
+          code that is harder to grok.
+        </p>
+
+        <hr/>
+
+        <p class="small">
+          Async.es is inspired by Goroutines and Channels, found in the Go language.
+        </p>
+
+
+      </div>
+
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>Coordinating concurrent activities using Jobs and Pipes</h4>
+        </div>
+        <div class="panel-body">
+          <p>
+            <b>Jobs</b> and <b>Pipes</b> make programs with concurrent behavior (e.g. user can navigate through a list while
+            data gets downloaded) much easier to write and understand because you can use standard control
+            flow mechanisms like <code>for</code> and <code>while</code> loops, conditionals like <code>if/then/else</code>
+            and <code>case</code>, higher order functions like <code>map</code> and <code>reduce</code> and
+            error handling using <code>try/catch</code>.
+          </p>
+
+          <hr/>
+
+          <h4>Job</h4>
+          <p>
+            A Job is a function executing concurrently with other Jobs.
+            Start a Job by calling it with the <code>job</code> function:
+            <pre>
+              job(someFunction);
+            </pre>
+            
+            You can also pass a function literal, e.g.
+            <pre>
+              job(function* (x, y) {
+                  var answer = x + y;
+                  console.log('answer=' + answer);
+              });
+            </pre>
+            Notice that the function is declared with an asterisk <code>function*</code>. This makes it a Generator function, which
+            is new in the upcoming version of JavaScript, but that can be used today by transpiling your code to ES5 using Google Traceur.
+            (you can declare Generators in NodeJS 0.11 when running with the -harmony flag).
+          </p>
+
+          <hr/>
+
+          <h4>Pipe</h4>
+          <p>
+            A Pipe is created with <code>new Pipe()</code> and it provides an API for sending/receiving data between two Jobs. Pipes are
+            unbuffered/synchronous which has the nice effect that they combine communication (data exchange) with synchronization,
+            guaranteeing that two Jobs are in a known state at any given time.
+          </p>
+
+          <p>
+            A Job can put data into a Pipe by calling <code>yield pipe.put('someData')</code>, and another Job can get data by calling
+            <code>yield pipe.get()</code>. The <code>yield</code> keyword causes the Job to suspend executation until another Job issues
+            an opposite request on the same Pipe. When this happens, the Jobs are said to rendezvous; they are now synchronized, and will
+            each continue code execution until they reach another <code>yield</code> statement.
+          </p>
+
+        </div>
+      </div>
+
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>simple example</h4>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            This example was inpired by David Nolen's <a href="http://swannodette.github.io/2013/07/12/communicating-sequential-processes/">example</a> for Clojure(Script)'s core.async.
+          </p>
+          <div class="row">
+            <div class="col-md-6">
+              <pre>
+        var pipe = new $async.Pipe(),
+            timeout = $async.timeout,
+            job = $async.job;
+
+            
+        job(function* () {
+            while (true) {
+                yield timeout(250).get();
+                yield pipe.put(1);
+            }   
+        });
+
+        job(function* () {
+            while (true) {
+                yield timeout(1000).get();
+                yield pipe.put(2);
+            }
+        });
+
+        job(function* () {
+            while (true) {
+                yield timeout(1500).get();
+                yield pipe.put(3);
+            }
+        });
+
+        job(function* () {
+            var data;
+            while (true) {
+                data = yield pipe.get();
+                console.log(data);            
+            }
+        });
+              </pre>
+            </div>
+
+            <div class="col-md-6">
+              <p>We create a new pipe that the two jobs will use to communicate & synchronize on.</p>
+              <p><code>timeout</code>is a standard pipe that waits for the specified amount of time
+                before it puts data on the pipe, signalling to a waiting job that the time as expired.
+              </p>
+              <hr/>
+
+              <p>Now we start our first job. It runs indefinitely (<code>while (true)</code>) and is pretty
+                simple: every 250ms it puts the value "1" in the pipe.
+              </p>
+
+              <hr/>
+
+              <p>Similarly, a second and third job, with 1000ms and 1500ms cadences respectively  at
+                which it puts values into the pipe.
+              </p>
+
+              <hr/>
+
+              <p>
+                The fourth job also runs indefinitely, but it waits until it can get data from the pipe and
+                then simply displays it to the user.
+              </p>
+
+              <div id="eg1out" class="well"></div>
+            </div>
+            
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>complex example</h4>
+        </div>
+        
+        <div class="panel-body">
+          <p>
+            Building an autocomplete search input that is responsive, efficient, and correct can be tricky.
+            For a good user experience, it requires careful coordination of user input events and API requests.
+          </p>
+          <p>
+            This <a href="autocomplete.html">tutorial</a> shows how you can implement it very simply using Jobs and Pipes. 
+          </p>          
+        </div>
+      </div>
+
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>get started</h4>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            Get the <a href="https://github.com/async-es/async-es">code</a>.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <a href="https://github.com/async-es/async-es"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+
+
+    <script src="index.es5.js"></script>
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
+  </body>
+
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>autocomplete example using async.es</title>
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+
+    <link rel="stylesheet" href="async.css">
+
+    <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+    <script src="traceur/traceur.js"></script>
+    <script src="traceur/bootstrap.js"></script>
+  </head>
+
+  <body>
+    <div class="navbar navbar-default">
+
+      <div class="navbar-header">
+        <a class="navbar-brand" href="index.html">async.es</a>
+      </div>
+      
+    </div>
+
+    <div class="container">
+
+      <div class="jumbotron">
+        <h3>Building an autocomplete search input</h3>
+        <p>
+          Let's say you want to build an autocomplete search field for Wikipedia.
+        </p>
+
+        <p>
+          As the user types characters, the program should get results from Wikipedia
+          and display them below the input field.
+        </p>
+
+        <div class="well well-lg">
+          Give it a try:
+
+          <div id="search">
+            <input id="searchtext" class="form-control" placeholder="search"></input>
+            <div id="results"></div>
+          </div>
+        </div>
+
+      </div>
+
+
+      <div id="problem" class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>1. problem</h4>
+        </div>
+
+        <div class="panel-body">
+
+          <p>
+            Because you want a pleasant user experience you decide the program
+            should:
+          </p>
+          <dl class="dl-horizontal">
+            <dt>responsive</dt>
+            <dd>display results as the user enters characters</dd>
+
+            <dt>correct</dt>
+            <dd>
+              display the correct results, even if API requests return out of order
+              (e.g. "abso" might return before "abs" does)
+            </dd>
+
+            <dt>efficient</dt>
+            <dd>not make unnecessary API requests if the user types quickly</dd>
+
+            <dt>unique</dt>
+            <dd>
+              not issue multiple consecutive API requests for the same search input (the keyup
+              event might fire without the text changing)
+            </dd>
+
+
+            <dt>minimum length</dt>
+            <dd>only give suggestions once more than 2 characters are entered</dd>
+
+          </dl>
+
+        </div>
+      </div>
+
+      <div id="program-structure" class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>2. classic program structure (callback hell)</h4>
+        </div>
+
+        <div class="panel-body">
+          Since listening for key input and making HTTP requests involve callbacks you
+          suspect the general shape of your program will look something like:
+
+          <pre>
+            keyup(function(event) {
+                $.getJSON(searchUrl + input.text, function(data) {
+                    displayResults(data);
+                });        
+            });
+          </pre>
+
+          But crafting a proper solution that deals with out of order results,
+          making effecient API requests, and keeping the UI responsive becomes
+          tricky because you need to <b>orchestrate control flow across asynchronous callbacks</b>.
+
+          Is there another way?
+        </div>
+      </div>
+
+      <div id="pseudocode" class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>3. pseudocode</h4>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            It is often useful to think through the solution without regard to the specifics
+            of the programming language, and selectively ignoring aspects that are irrelevant
+            to the core of the problem.
+          </p>
+
+          <p>
+            For example, if we think of the core of the problem being that we need to display
+            search results as the user types slowly (or after a pause when typing fast), and
+            further assume that asynchronous behavior is a technical detail not germane to
+            the core problem, then we might come up with this pseudocode:
+          </p>
+
+          <pre>
+            loop:
+                // if user types fast, we only care about last event
+                event = last(getKeyUp()) 
+
+                text = input.text
+                minLength = text.length > 2
+
+                if (minLength & text != previousText):
+                    data = searchWikipedia(text) 
+                    if (data.error) 
+                        showError(data.error)
+                    else 
+                        showResults(data)
+                else if not minLength:
+                    clearResults()
+
+                previousText = text
+          </pre>
+
+          This looks like it might do the job, but implementing this in JavaScript
+          requires us to deal with callbacks and it is not clear how that can be fitted
+          into the above pseudocode, without obscuring the <b>essence</b> of the solution.
+
+        </div>
+      </div>
+
+      <div id="solution" class="panel panel-primary">
+        <div class="panel-heading">
+          <h4>4. autocomplete using Jobs and Pipes</h4>
+        </div>
+
+        <div class="panel-body">
+          <p>
+            Translating the above pseudocode to JavaScript is trivial when you have access
+            to Jobs and Pipes. 
+          </p>
+
+
+
+
+          <div class="row">
+            <div class="col-md-8">
+              <pre>
+
+job(function* () {
+        var keyup = listen(input, 'keyup'),
+            pacedKeyup = pace(keyup, 300),
+            evt, data, res, text, previousText,
+            minLength;
+        
+        while (true) {
+            evt = yield pacedKeyup.get();
+            text = evt.target.value;
+            minLength = text.length > 2;
+
+            if (minLength && text !== previousText) {
+                data = yield searchWikipedia(text).get();
+                
+                if (data.error) {
+                    showError(JSON.stringify(data.error));
+                } else {                    
+                    if (data[0] && data[1]) {
+                        showResults(data[1]);
+                    }
+                }
+                
+            } else if (!minLength) {
+                clearResults();
+            }
+
+            previousText = text;
+        }
+    });
+
+              </pre>
+            </div>
+
+            <div class="col-md-4">
+              <p>
+                We kick off a Job by calling <code>job(function*() {})</code>.
+              </p>
+
+              <p>
+                In the Job, we create a Pipe with <code>listen</code>on which we'll receive
+                keyup events. We transform that pipe through <code>pace</code> so that
+                if the user types faster than 300ms, we don't get bombarded.
+              </p>
+
+              <hr/>
+
+              <p>
+                Now for some interesting bits. We create a <code>while (true)</code> loop (afterall,
+                the user must be able enter text an infinite number of times).
+              </p>
+
+              <p>
+                Next we <b>wait</b> for a keyup event in the Pipe: <code>yield pacedKeyup.get()</code>.                
+              </p>
+
+              <p>
+                Once we receive a keyup event, we do some checking to make sure it passes constraints
+                like minimum length etc.
+              </p>
+
+              <p>
+                Finally we shoot a request to the Wikipedia API and once again <b>wait</b> for the results
+                <code>yield searchWikipedia(text).get()</code>, after which we display to the user. 
+              </p>
+                
+            </div>
+
+
+          </div>
+
+          <p>
+            The above Job relies on the following helper functions and variables:
+          </p>
+
+                    <div class="row">
+            <div class="col-md-8">
+              <pre>
+    var input = document.getElementById('searchtext'),
+        results = document.getElementById('results');
+
+    function clearResults() {
+        results.innerHTML = '';
+    }
+
+    function showResults(terms) {
+        var i, len, p;
+
+        clearResults();
+        
+        for (i = 0, len = terms.length; i < len; i++) {
+            p = document.createElement('p');
+            p.innerHTML = terms[i];
+            results.appendChild(p);
+        }                
+    }
+
+    function showError(err) {
+        results.innerHTML = '<h1p>Error:</h1>' + err;
+    }
+
+              </pre>
+            </div>
+
+            <div class="col-md-4">
+              These functions display the results. Nothing unusual here.
+            </div>
+          </div>
+
+
+          <div class="row">
+
+            <div class="col-md-8">
+
+              <pre class="condensed">
+    function searchWikipedia(term) {
+        var url = 'http://en.wikipedia.org/w/api.php?' +
+                  'action=opensearch&format=json&callback=?&search=' +
+                  encodeURIComponent(term);
+        return jsonp(url);
+    }                
+              </pre>
+
+            </div>
+
+            <div class="col-md-4">
+              The <code>searchWikipedia</code> function returns a Pipe that will get results
+              from the specified jsonp request. The Pipe is created by calling the <code>jsonp</code> utility function in async.es.
+            </div>              
+          </div>
+
+
+
+        </div>
+        
+        
+      </div>
+
+    </div>
+
+    <a href="https://github.com/async-es/async-es"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+
+
+    <script src="autocomplete.es5.js"></script>
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
+  </body>
+
+</html>
