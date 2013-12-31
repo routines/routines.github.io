@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <title>JS/Pipe — coordinating concurrent code</title>
     <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
-
     <link rel="stylesheet" href="async.css">
 
     <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
-    <script src="traceur/traceur.js"></script>
-    <script src="traceur/bootstrap.js"></script>
+    <script src="jspipe.es5.js"></script>
   </head>
 
   <body>
@@ -120,9 +118,9 @@
           <div class="row">
             <div class="col-md-6">
               <pre>
-        var pipe = new $async.Pipe(),
-            timeout = $async.timeout,
-            job = $async.job;
+        var pipe = new JSPipe.Pipe(),
+            timeout = JSPipe.timeout,
+            job = JSPipe.job;
 
             
         job(function* () {
@@ -212,17 +210,17 @@
 
         <div class="panel-body">
           <p>
-            Get the <a href="https://github.com/async-es/async-es">code</a>.
+            Get the <a href="https://github.com/jspipe/jspipe">code</a>.
           </p>
         </div>
       </div>
 
     </div>
 
-    <a href="https://github.com/async-es/async-es"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+    <a href="https://github.com/jspipe/jspipe"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
 
 
-    <script src="index.js" type="text/traceur"></script>
+    <script src="index.es5.js"></script>
     <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
   </body>
 
