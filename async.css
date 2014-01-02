@@ -38,3 +38,12 @@ pre.condensed {
 .proc-3 {
     color: #6666ff;
 }
+
+td:first-child {
+    text-align: right;
+    padding-right: 15px;
+}
+
+td:nth-child(2) {
+    font-style: italic;
+}
