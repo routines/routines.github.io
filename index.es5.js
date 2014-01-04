@@ -21,20 +21,18 @@ function main(Pipe, job, timeout) {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
-                    if (!true) {
-                        $ctx.next = 7;
-                        break;
-                    }
-
-                    $ctx.next = 3;
+                    $ctx.next = 2;
                     return timeout(250).get();
-                case 3:
-                    $ctx.next = 5;
-                    return pipe.put(1);
-                case 5:
+                case 2:
+                    if (!$ctx.sent) {
+                        $ctx.next = 6;
+                        break;
+                    }
+
+                    pipe.send(1);
                     $ctx.next = 0;
                     break;
-                case 7:
+                case 6:
                 case "end":
                     return $ctx.stop();
                 }
@@ -45,20 +43,18 @@ function main(Pipe, job, timeout) {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
-                    if (!true) {
-                        $ctx.next = 7;
-                        break;
-                    }
-
-                    $ctx.next = 3;
+                    $ctx.next = 2;
                     return timeout(1000).get();
-                case 3:
-                    $ctx.next = 5;
-                    return pipe.put(2);
-                case 5:
+                case 2:
+                    if (!$ctx.sent) {
+                        $ctx.next = 6;
+                        break;
+                    }
+
+                    pipe.send(2);
                     $ctx.next = 0;
                     break;
-                case 7:
+                case 6:
                 case "end":
                     return $ctx.stop();
                 }
@@ -69,20 +65,18 @@ function main(Pipe, job, timeout) {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
-                    if (!true) {
-                        $ctx.next = 7;
+                    $ctx.next = 2;
+                    return timeout(1500).get();
+                case 2:
+                    if (!$ctx.sent) {
+                        $ctx.next = 6;
                         break;
                     }
 
-                    $ctx.next = 3;
-                    return timeout(1500).get();
-                case 3:
-                    $ctx.next = 5;
-                    return pipe.put(3);
-                case 5:
+                    pipe.send(3);
                     $ctx.next = 0;
                     break;
-                case 7:
+                case 6:
                 case "end":
                     return $ctx.stop();
                 }
@@ -98,21 +92,20 @@ function main(Pipe, job, timeout) {
                 case 0:
                     data = [];
                 case 1:
-                    if (!true) {
-                        $ctx.next = 10;
+                    $ctx.next = 3;
+                    return pipe.get();
+                case 3:
+                    if (!(newItem = $ctx.sent)) {
+                        $ctx.next = 9;
                         break;
                     }
 
                     out.innerHTML = render(data);
-                    $ctx.next = 5;
-                    return pipe.get();
-                case 5:
-                    newItem = $ctx.sent;
                     data.push(newItem);
                     data = peekn(data, 10);
                     $ctx.next = 1;
                     break;
-                case 10:
+                case 9:
                 case "end":
                     return $ctx.stop();
                 }

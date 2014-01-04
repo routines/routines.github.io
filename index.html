@@ -124,30 +124,26 @@
 
             
         job(function* () {
-            while (true) {
-                yield timeout(250).get();
-                yield pipe.put(1);
+            while (yield timeout(250).get()) {
+                pipe.send(1);
             }   
         });
 
         job(function* () {
-            while (true) {
-                yield timeout(1000).get();
-                yield pipe.put(2);
+            while (yield timeout(1000).get()) {
+                pipe.send(2);
             }
         });
 
         job(function* () {
-            while (true) {
-                yield timeout(1500).get();
-                yield pipe.put(3);
+            while (yield timeout(1500).get()) {
+                pipe.send(3);
             }
         });
 
         job(function* () {
             var data;
-            while (true) {
-                data = yield pipe.get();
+            while (data = yield pipe.get()) {
                 console.log(data);            
             }
         });
@@ -161,21 +157,20 @@
               </p>
               <hr/>
 
-              <p>Now we start our first job. It runs indefinitely (<code>while (true)</code>) and is pretty
-                simple: every 250ms it puts the value "1" in the pipe.
+              <p>Now we start our first job. It runs every 250ms (<code>yield timeout(250).get()</code>),
+                sending the value "1" to the pipe. 
               </p>
 
               <hr/>
 
-              <p>Similarly, a second and third job, with 1000ms and 1500ms cadences respectively  at
-                which it puts values into the pipe.
+              <p>Similarly, we have a second and third job, with 1000ms and 1500ms cadences respectively,
+                each sending values to the pipe.
               </p>
 
               <hr/>
 
               <p>
-                The fourth job also runs indefinitely, but it waits until it can get data from the pipe and
-                then simply displays it to the user.
+                The fourth job waits until it can get data from the pipe and then simply displays it to the user.
               </p>
 
               <div id="eg1out" class="well"></div>
