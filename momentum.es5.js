@@ -1,65 +1,79 @@
 function main(job, Pipe, listen) {
-    wrapGenerator.mark(releasingMouseButton);
-    wrapGenerator.mark(pressingMouseButtonOnSquare);
-    wrapGenerator.mark(momentumPositioningBall);
+    wrapGenerator.mark(endingTouch);
+    wrapGenerator.mark(touchmoving);
+    wrapGenerator.mark(startingTouchOnBall);
     wrapGenerator.mark(bouncingBall);
+    wrapGenerator.mark(throwingBall);
     wrapGenerator.mark(draggingBall);
-    var square = document.getElementById('square');
-    var mousemovePipe = listen(document, 'mousemove');
-    var mouseIsDown = false;
-    var mousePositionInSquare = {};
-    var throwPipe = new Pipe();
-    var currentPosition;
-    var lastSampledPosition;
-    var sampleFrequency = 5;
 
-    function placeSquare(x, y, duration) {
-        square.style.webkitTransitionDuration = duration | 0;
-        square.style.webkitTransitionTimingFunction = 'ease-out';
-        square.style.webkitTransform = 
-            'translateX(' + (x) + 
-            'px) translateY(' + (y) + 'px)';
-    }
+    var ball = document.getElementById('ball'),
+        ballWidth = ball.clientWidth,
+        ballHeight = ball.clientHeight,
+        pointerIsDown = false,
+        touchmovePipe = listen(document, 'touchmove', true),
+        pointermovePipe = new Pipe(),
+        throwPipe = new Pipe(),
+        timeSpaceSamples = [],
+        sampleSize = 4,
+        throwDistance = 100,
+        pointerPositionInBall,
+        currentPosition;
 
     function draggingBall() {
-        var evt, i;
+        var evt, x, y;
 
         return wrapGenerator(function draggingBall$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
-                i = 0;
-            case 1:
-                $ctx.next = 3;
-                return mousemovePipe.get();
-            case 3:
+                $ctx.next = 2;
+                return pointermovePipe.get();
+            case 2:
                 if (!(evt = $ctx.sent)) {
-                    $ctx.next = 7;
+                    $ctx.next = 10;
                     break;
                 }
 
-                if (mouseIsDown) {
-                    i++;
-                    
-                    currentPosition = { x: evt.clientX - mousePositionInSquare.x,
-                                        y: evt.clientY - mousePositionInSquare.y };
+                x = evt.clientX - pointerPositionInBall.x;
+                y = evt.clientY - pointerPositionInBall.y;
 
-                    placeSquare(currentPosition.x, currentPosition.y);
+                timeSpaceSamples.push({ time: Date.now(),
+                                        x: x,
+                                        y: y });
 
-                    if (lastSampledPosition) {
-                        if (i % sampleFrequency === 0) {
-                            lastSampledPosition = currentPosition;
-                        }
-                    } else {
-                        lastSampledPosition = currentPosition;
-                    }
-
-                } else {
-                    i = 0;
+                while (timeSpaceSamples.length > sampleSize) {
+                    timeSpaceSamples.shift();
                 }
 
-                $ctx.next = 1;
+                placeBall(x, y);
+                $ctx.next = 0;
                 break;
-            case 7:
+            case 10:
+            case "end":
+                return $ctx.stop();
+            }
+        }, this);
+    }
+
+    function throwingBall() {
+        var velocity, x, y;
+
+        return wrapGenerator(function throwingBall$($ctx) {
+            while (1) switch ($ctx.next) {
+            case 0:
+                $ctx.next = 2;
+                return throwPipe.get();
+            case 2:
+                if (!(velocity = $ctx.sent)) {
+                    $ctx.next = 8;
+                    break;
+                }
+
+                x = currentPosition.x + velocity.x * throwDistance;
+                y = currentPosition.y + velocity.y * throwDistance;
+                placeBall(x, y, 900, 'cubic-bezier(0.19, 1, 0.22, 1)');
+                $ctx.next = 0;
+                break;
+            case 8:
             case "end":
                 return $ctx.stop();
             }
@@ -76,28 +90,54 @@ function main(job, Pipe, listen) {
         }, this);
     }
 
-    function momentumPositioningBall() {
-        var vector, deltaX, deltaY, targetX, targetY, cur, prev;
+    function placeBall(x, y, duration, ease) {
+        var maxX = document.width - ballWidth,
+            maxY = document.height - ballHeight,
+            willHitWall = false;
 
-        return wrapGenerator(function momentumPositioningBall$($ctx) {
+        x = Math.round(x);
+        y = Math.round(y);
+
+        if (!willHitWall) {
+
+            ball.style.webkitTransitionDuration = duration || 16;
+            ball.style.webkitTransitionTimingFunction = ease || 'ease-out';
+        
+            ball.style.webkitTransform = 
+                'translateX(' + (x) + 
+                'px) translateY(' + (y) + 'px)';
+        
+            currentPosition = { x: x, y: y };
+        }
+        
+    }
+
+    function startingTouchOnBall() {
+        var touchstart, touch, evt, currentX, currentY;
+
+        return wrapGenerator(function startingTouchOnBall$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
-                $ctx.next = 2;
-                return throwPipe.get();
-            case 2:
-                if (!(vector = $ctx.sent)) {
+                touchstart = listen(ball, 'touchstart');
+            case 1:
+                $ctx.next = 3;
+                return touchstart.get();
+            case 3:
+                if (!(evt = $ctx.sent)) {
                     $ctx.next = 12;
                     break;
                 }
 
-                cur = vector[0];
-                prev = vector[1];
-                deltaX = cur.x - prev.x;
-                deltaY = cur.y - prev.y;
-                targetX = cur.x + (deltaX * 1);
-                targetY = cur.y + (deltaY * 1);
-                placeSquare(targetX, targetY, 300);
-                $ctx.next = 0;
+                touch = evt.targetTouches[0];
+                console.log(touch);
+                pointerIsDown = true;
+                currentX = (currentPosition && currentPosition.x) || 0;
+                currentY = (currentPosition && currentPosition.y) || 0;
+
+                pointerPositionInBall = { x: touch.clientX - currentX,
+                                          y: touch.clientY - currentY };
+
+                $ctx.next = 1;
                 break;
             case 12:
             case "end":
@@ -106,55 +146,68 @@ function main(job, Pipe, listen) {
         }, this);
     }
 
-    function pressingMouseButtonOnSquare() {
-        var mousedown, evt;
+    function touchmoving() {
+        var evt, touch;
 
-        return wrapGenerator(function pressingMouseButtonOnSquare$($ctx) {
+        return wrapGenerator(function touchmoving$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
-                mousedown = listen(square, 'mousedown');
-            case 1:
-                $ctx.next = 3;
-                return mousedown.get();
-            case 3:
+                $ctx.next = 2;
+                return touchmovePipe.get();
+            case 2:
                 if (!(evt = $ctx.sent)) {
-                    $ctx.next = 8;
+                    $ctx.next = 7;
                     break;
                 }
 
-                mouseIsDown = true;
+                touch = evt.touches[0];
 
-                mousePositionInSquare = { x: evt.offsetX,
-                                          y: evt.offsetY };
+                if (touch.target === ball) {
+                    pointermovePipe.send(touch);
+                }
 
-                $ctx.next = 1;
+                $ctx.next = 0;
                 break;
-            case 8:
+            case 7:
             case "end":
                 return $ctx.stop();
             }
         }, this);
     }
 
-    function releasingMouseButton() {
-        var mouseup, evt;
+    function endingTouch() {
+        var touchend, velocity, oldestSample, newestSample, duration, xDirection, yDirection, evt;
 
-        return wrapGenerator(function releasingMouseButton$($ctx) {
+        return wrapGenerator(function endingTouch$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
-                mouseup = listen(document, 'mouseup');
+                touchend = listen(document, 'touchend');
             case 1:
                 $ctx.next = 3;
-                return mouseup.get();
+                return touchend.get();
             case 3:
                 if (!(evt = $ctx.sent)) {
                     $ctx.next = 7;
                     break;
                 }
 
-                if (mouseIsDown) {
-                    mouseIsDown = false;
-                    throwPipe.send([currentPosition, lastSampledPosition]);
+                if (pointerIsDown) {
+                    pointerIsDown = false;
+                    
+                    oldestSample = timeSpaceSamples[0];
+                    newestSample = timeSpaceSamples[timeSpaceSamples.length - 1];
+                    duration = newestSample.time - oldestSample.time;
+                    xDirection = (newestSample.x - oldestSample.x) < 0 ? -1 : 1;
+                    yDirection = (newestSample.y - oldestSample.y) < 0 ? -1 : 1;
+                    
+                    velocity = {
+                        x: (newestSample.x - oldestSample.x) / (duration/2),
+                        y: (newestSample.y - oldestSample.y) / (duration/2),
+                        xDirection: xDirection,
+                        yDirection: yDirection
+                    };
+
+                    throwPipe.send(velocity);
                 }
 
                 $ctx.next = 1;
@@ -167,10 +220,11 @@ function main(job, Pipe, listen) {
     }
 
     job(draggingBall);
-    job(momentumPositioningBall);
+    job(throwingBall);
     job(bouncingBall);
-    job(pressingMouseButtonOnSquare);
-    job(releasingMouseButton);
+    job(touchmoving);
+    job(startingTouchOnBall);
+    job(endingTouch);
 }
 
 

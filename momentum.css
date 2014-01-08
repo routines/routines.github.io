@@ -1,8 +1,12 @@
-#square {
+#ball {
     position: absolute;
-    width: 100px;
-    height: 100px;
-    background-color: #ddd;
+    width: 200px;
+    height: 200px;
+    border: 1px solid #333;
+    border-radius: 100px;
+
+    background: red;
+    opacity: 0.75;
 }
 
 body {
