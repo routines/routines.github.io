@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>JS/Pipe — coordinating concurrent code</title>
+    <title>JS/Pipe — coordinating asynchronous code</title>
     <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="async.css">
 
@@ -35,7 +35,7 @@
         </div>
 
         <p class="small">
-          Although Promises and RxJS also try to make it easier to deal with callback hell,
+          Although other solutions also try to make it easier to deal with callback hell,
           race conditions, and code coordination, they suffer from the same problem as callbacks/events
           in that they intertwine control flow and communication. This results in esoteric
           code that is harder to grok.
