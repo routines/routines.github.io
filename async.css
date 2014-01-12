@@ -27,6 +27,11 @@ pre.condensed {
 }
 
 
+#eg1out {
+    padding: 2 10;
+    font-size: 11px;        
+}
+
 .proc-1 {
     color: #ff6666;
 }
@@ -36,6 +41,7 @@ pre.condensed {
 }
 
 .proc-3 {
+    
     color: #6666ff;
 }
 

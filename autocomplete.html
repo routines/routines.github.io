@@ -1,301 +1,269 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>autocomplete example using JS/Pipe</title>
-    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+---
+layout: page
+title: Autcomplete example using JS/Pipe
+---
 
-    <link rel="stylesheet" href="async.css">
+<div class="jumbotron">
+  <h3>Coordinating user input events and HTTP requests</h3>
+  
+  <p class="lead">
+    It can be tricky to write an efficient and correct program with good
+    user interaction if that program must coordinate multiple asynchronous
+    activities such as user input events and HTTP requests.
+  </p>
 
-    <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
-    <script src="generator-runtime.js"></script>
-    <script src="jspipe.es5.js"></script>
-  </head>
+  <p>
+    For example, to build a good autocomplete search field for Wikipedia, you
+    want results to display as the user types, but not make unnecessary
+    network requests. 
+  </p>
 
-  <body>
-    <div class="navbar navbar-default">
+  <div class="well well-lg">
+    Give it a try:
 
-      <div class="navbar-header">
-        <a class="navbar-brand" href="index.html">JS/Pipe</a>
+    <div id="search">
+      <input id="searchtext" class="form-control" placeholder="search"></input>
+      <div id="results"></div>
+    </div>
+  </div>
+
+</div>
+
+
+<div id="problem" class="panel panel-primary">
+  <div class="panel-heading">
+    <h4>issues to consider</h4>
+  </div>
+
+  <div class="panel-body">
+
+    <table>
+      <tr>
+        <td>User types fast:</td>
+        <td>Make network requests when typing speed is below a certain threshold.</td>
+      </tr>
+
+      <tr>
+        <td>Key event occurs but text remains unchanged:</td>
+        <td>Do not make the same network request twice in a row.</td>
+      </tr>
+
+      <tr>
+        <td>Network requests return out of order:</td>
+        <td>If an existing network request is in flight, cancel it; i.e. last in wins.</td>
+      </tr>
+
+    </table>
+
+  </div>
+</div>
+
+<div id="program-structure" class="panel panel-primary">
+  <div class="panel-heading">
+    <h4>callback hell</h4>
+  </div>
+
+  <div class="panel-body">
+    Since listening for key input and making HTTP requests involve callbacks the following
+    is the program shape that seems natural:
+
+    <pre>
+      keyup(function(event) {
+          $.getJSON(searchUrl + input.text, function(data) {
+              displayResults(data);
+          });        
+      });
+    </pre>
+
+    But crafting a proper solution that deals with out of order results,
+    making effecient API requests, and keeping the UI responsive becomes
+    tricky because you need to <b>orchestrate control flow across asynchronous callbacks</b>.
+
+    Is there another way?
+  </div>
+</div>
+
+
+<div id="solution" class="panel panel-primary">
+  <div class="panel-heading">
+    <h4>model the problem using Jobs and Pipes</h4>
+  </div>
+
+  <div class="panel-body">
+    <p>
+      It is useful to think of the problem as comprising the following concurrent processes:
+      <ul>
+        <li>getting user input as they type</li>
+        <li>making API requests</li>
+        <li>displaying autocomplete results</li>
+      </ul>
+    </p>
+    
+    <p>
+      We can then model the problem idiomatically using Jobs and Pipes provided by <a href="https://github.com/jspipe/jspipe">JS/Pipe</a>.
+    </p>
+    
+
+    <hr/>
+
+
+    <div class="row">
+      <div class="col-md-8">
+        <pre>
+function main(Pipe, job, listen,  pace) {
+          
+   var input = document.getElementById('searchtext'),
+       results = document.getElementById('results'),
+       wikipediaUrl = 'http://en.wikipedia.org/w/api.php' +
+                      '?action=opensearch&format=json' +
+                      '&callback=?&search=',
+       searchRequestPipe = new Pipe(),
+       searchResultsPipe = new Pipe();
+        </pre>
+      </div>
+      <div class="col-md-4">
+        We wil use two pipes to exchange data and synchronize between jobs.
+      </div>
+
+    </div>
+
+    <div class="row">
+      <div class="col-md-8">
+        <pre>
+job(search, [searchRequestPipe, searchResultsPipe]);
+job(displaySearchResults, [searchResultsPipe]);
+job(getUserSearchInput, [searchRequestPipe]);
+        </pre>
+      </div>
+      <div class="col-md-4">
+        Kick off three concurrent jobs: <code>search</code>, <code>displaySearchResults</code>, and <code>getUserSearchInput</code>.
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-8">
+        <pre>
+function* search(requestPipe, resultPipe) {
+    var searchTerm,
+        req;
+          
+     while (searchTerm = yield requestPipe.get()) {
+         req && req.abort();
+         req = $.getJSON(wikipediaUrl +
+         encodeURIComponent(searchTerm),
+         resultPipe.send.bind(resultPipe));
+     }
+}
+        </pre>
+      </div>
+
+      <div class="col-md-4">
+        <p>
+          The search job is simple: get the search term from the <code>requestPipe</code> and
+          search Wikipedia. The result is sent to the <code>resultPipe</code>.
+        </p>
+        
+        <p>
+          If there is an existing request in flight, abort it. This ensures that
+          we always display the result for the last search term.
+        </p>
+        
+      </div>
+
+    </div>
+
+    <div class="row">
+      <div class="col-md-8">
+        <pre>                
+function* displaySearchResults(resultPipe) {
+    var res,
+        lines;
+          
+    while (res = yield resultPipe.get()) {
+        lines = res.error && ['&lth1&gt' + res.error + '&lt/h1&gt'] ||
+                res[0] && res[1];
+          
+        results.innerHTML = lines.map(function(line) {
+            return '&ltp&gt' + line + '&lt/p&gt';
+         }).join('');
+    }
+}
+        </pre>
+      </div>
+
+      <div class="col-md-4">
+        Displaying search results is also straightforward: we grab results
+        from the <code>resultPipe</code> and display it on the web page.
       </div>
       
     </div>
 
-    <div class="container">
+    <div class="row">
+      <div class="col-md-8">
+        <pre>
+function* getUserSearchInput(requestPipe) {
+    var keyup = pace(300, listen(input, 'keyup')),
+        evt,
+        text,
+        previousText,
+        minLength;
+          
+    while (evt = yield keyup.get()) {
+        text = evt.target.value;
+        minLength = text.length > 2;
 
-      <div class="jumbotron">
-        <h3>Coordinating user input events and HTTP requests</h3>
+        if (minLength && text !== previousText) {
+            requestPipe.send(text);                
+        } else if (!minLength) {
+            results.innerHTML = '';
+        }
+
+        previousText = text;
+    }
+}
+        </pre>
+      </div>
+
+      <div class="col-md-4">
+        <p>
+          To get user input, we create a pipe that listens for keyup events from the text box.
+        </p>
         
-        <p class="lead">
-          It can be tricky to write an efficient and correct program with good
-          user interaction if that program must coordinate multiple asynchronous
-          activities such as user input events and HTTP requests.
+        <p>
+          To avoid getting bombarded when the user types fast (faster than 300ms between keystrokes),
+          we pace the data coming in on the <code>keyup</code> pipe.
         </p>
 
         <p>
-          For example, to build a good autocomplete search field for Wikipedia, you
-          want results to display as the user types, but not make unnecessary
-          network requests. 
+          Before sending the text to the <code>requestPipe</code>, we check that the text is at
+          least two characters long and that it isn't the same text we previously processed.
         </p>
-
-        <div class="well well-lg">
-          Give it a try:
-
-          <div id="search">
-            <input id="searchtext" class="form-control" placeholder="search"></input>
-            <div id="results"></div>
-          </div>
-        </div>
-
-      </div>
-
-
-      <div id="problem" class="panel panel-primary">
-        <div class="panel-heading">
-          <h4>issues to consider</h4>
-        </div>
-
-        <div class="panel-body">
-
-          <table>
-            <tr>
-              <td>User types fast:</td>
-              <td>Make network requests when typing speed is below a certain threshold.</td>
-            </tr>
-
-            <tr>
-              <td>Key event occurs but text remains unchanged:</td>
-              <td>Do not make the same network request twice in a row.</td>
-            </tr>
-
-            <tr>
-              <td>Network requests return out of order:</td>
-              <td>If an existing network request is in flight, cancel it; i.e. last in wins.</td>
-            </tr>
-
-          </table>
-
-        </div>
-      </div>
-
-      <div id="program-structure" class="panel panel-primary">
-        <div class="panel-heading">
-          <h4>callback hell</h4>
-        </div>
-
-        <div class="panel-body">
-          Since listening for key input and making HTTP requests involve callbacks the following
-          is the program shape that seems natural:
-
-          <pre>
-            keyup(function(event) {
-                $.getJSON(searchUrl + input.text, function(data) {
-                    displayResults(data);
-                });        
-            });
-          </pre>
-
-          But crafting a proper solution that deals with out of order results,
-          making effecient API requests, and keeping the UI responsive becomes
-          tricky because you need to <b>orchestrate control flow across asynchronous callbacks</b>.
-
-          Is there another way?
-        </div>
-      </div>
-
-
-      <div id="solution" class="panel panel-primary">
-        <div class="panel-heading">
-          <h4>model the problem using Jobs and Pipes</h4>
-        </div>
-
-        <div class="panel-body">
-          <p>
-            It is useful to think of the problem as comprising the following concurrent processes:
-            <ul>
-              <li>getting user input as they type</li>
-              <li>making API requests</li>
-              <li>displaying autocomplete results</li>
-            </ul>
-          </p>
-          
-          <p>
-            We can then model the problem idiomatically using Jobs and Pipes provided by <a href="https://github.com/jspipe/jspipe">JS/Pipe</a>.
-          </p>
-          
-
-          <hr/>
-
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-function main(Pipe, job, listen,  pace) {
-    
-    var input = document.getElementById('searchtext'),
-        results = document.getElementById('results'),
-        wikipediaUrl = 'http://en.wikipedia.org/w/api.php?action=opensearch&format=json&callback=?&search=',
-        searchRequestPipe = new Pipe(),
-        searchResultsPipe = new Pipe();
-              </pre>
-            </div>
-            <div class="col-md-4">
-              We wil use two pipes to exchange data and synchronize between jobs.
-            </div>
-
-          </div>
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-    job(search, [searchRequestPipe, searchResultsPipe]);
-    job(displaySearchResults, [searchResultsPipe]);
-    job(getUserSearchInput, [searchRequestPipe]);
-              </pre>
-            </div>
-            <div class="col-md-4">
-              Kick off three concurrent jobs: <code>search</code>, <code>displaySearchResults</code>, and <code>getUserSearchInput</code>.
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-    function* search(requestPipe, resultPipe) {
-        var searchTerm,
-            req;
         
-        while (searchTerm = yield requestPipe.get()) {
-            req && req.abort();
-            req = $.getJSON(wikipediaUrl +
-                            encodeURIComponent(searchTerm),
-                            resultPipe.send.bind(resultPipe));
-        }
-    }
-              </pre>
-            </div>
+      </div>
+      
+    </div>
 
-            <div class="col-md-4">
-              <p>
-                The search job is simple: get the search term from the <code>requestPipe</code> and
-                search Wikipedia. The result is sent to the <code>resultPipe</code>.
-              </p>
-              
-              <p>
-                If there is an existing request in flight, abort it. This ensures that
-                we always display the result for the last search term.
-              </p>
-              
-            </div>
-
-          </div>
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>                
-    function* displaySearchResults(resultPipe) {
-        var res,
-            lines;
-        
-        while (res = yield resultPipe.get()) {
-            lines = res.error && ['&lth1&gt' + res.error + '&lt/h1&gt'] ||
-                    res[0] && res[1];
-            
-            results.innerHTML = lines.map(function(line) {
-                return '&ltp&gt' + line + '&lt/p&gt';
-            }).join('');
-        }
-    }
-              </pre>
-            </div>
-
-            <div class="col-md-4">
-              Displaying search results is also straightforward: we grab results
-              from the <code>resultPipe</code> and display it on the web page.
-            </div>
-               
-          </div>
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-    function* getUserSearchInput(requestPipe) {
-        var keyup = pace(300, listen(input, 'keyup')),
-            evt,
-            text,
-            previousText,
-            minLength;
-        
-        while (evt = yield keyup.get()) {
-            text = evt.target.value;
-            minLength = text.length > 2;
-
-            if (minLength && text !== previousText) {
-                requestPipe.send(text);                
-            } else if (!minLength) {
-                results.innerHTML = '';
-            }
-
-            previousText = text;
-        }        
-    }
-              </pre>
-            </div>
-
-            <div class="col-md-4">
-              <p>
-                To get user input, we create a pipe that listens for keyup events from the text box.
-              </p>
-              
-              <p>
-                To avoid getting bombarded when the user types fast (faster than 300ms between keystrokes),
-                we pace the data coming in on the <code>keyup</code> pipe.
-              </p>
-
-              <p>
-                Before sending the text to the <code>requestPipe</code>, we check that the text is at
-                least two characters long and that it isn't the same text we previously processed.
-              </p>
-              
-            </div>
-            
-          </div>
-
-          <div class="row">
-            <div class="col-md-8">
-              <pre>
-                
+    <div class="row">
+      <div class="col-md-8">
+        <pre>
 };
 
 main(JSPipe.Pipe, JSPipe.job, JSPipe.listen, JSPipe.pace);
-
-
-              </pre>
-            </div>
-
-          </div>
-
-          <hr/>
-          
-          <p>
-            You can see the full source <a href="https://github.com/jspipe/jspipe.github.io/blob/master/autocomplete.js">here</a>.
-          </p>
-
-
-
-
-        </div>
-        
-        
+        </pre>
       </div>
 
     </div>
 
-    <a href="https://github.com/jspipe/jspipe"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+    <hr/>
+    
+    <p>
+      You can see the full source <a href="https://github.com/jspipe/jspipe.github.io/blob/master/autocomplete.js">here</a>.
+    </p>
 
 
-    <script src="autocomplete.es5.js"></script>
-    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>    
-  </body>
+  </div>
+  
+  
+</div>
 
-</html>
+<script src="autocomplete.es5.js"></script>
