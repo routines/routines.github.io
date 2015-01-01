@@ -1,13 +1,13 @@
 ---
 layout: page
-title: JS/Pipe - coordinating asynchronous code
+title: Routines & Channels - coordinating asynchronous code
 ---
 
 <div class="jumbotron">
   <h2>Coordinating Asynchronous Code</h2>
   <div class="well well-lg">
     <p class="lead">
-      <span class="label label-success">JS/Pipe</span> provides JavaScript primitives that make it possible to <b>coordinate asynchronous code</b> without callbacks or chained functions.
+      <span class="label label-success">RCH</span> provides JavaScript primitives that make it possible to <b>coordinate asynchronous code</b> without callbacks or chained functions.
     <p>
       As a result, stack traces are crystal clear so debugging is easy.
     </p>
@@ -24,7 +24,7 @@ title: JS/Pipe - coordinating asynchronous code
   <hr/>
 
   <p class="small">
-    JS/Pipe is inspired by Goroutines and Channels, found in the Go language.
+    RCH is inspired by Goroutines and Channels, found in the Go language.
   </p>
 
 
@@ -33,11 +33,11 @@ title: JS/Pipe - coordinating asynchronous code
 
 <div class="panel panel-primary">
   <div class="panel-heading">
-    <h4>Coordinating concurrent activities using Jobs and Pipes</h4>
+    <h4>Coordinating concurrent activities using Routines and Channels</h4>
   </div>
   <div class="panel-body">
     <p>
-      <b>Jobs</b> and <b>Pipes</b> make programs with concurrent behavior (e.g. user can navigate through a list while
+      <b>Routines</b> and <b>Channels</b> make programs with concurrent behavior (e.g. user can navigate through a list while
       data gets downloaded) much easier to write and understand because you can use standard control
       flow mechanisms like <code>for</code> and <code>while</code> loops, conditionals like <code>if/then/else</code>
       and <code>case</code>, higher order functions like <code>map</code> and <code>reduce</code> and
@@ -46,17 +46,17 @@ title: JS/Pipe - coordinating asynchronous code
 
     <hr/>
 
-    <h4>Job</h4>
+    <h4>go</h4>
     <p>
-      A Job is a function executing concurrently with other Jobs.
-      Start a Job by calling it with the <code>job</code> function:
+      go is a function that starts executing a routine concurrently with other routines.
+      Start a concurrent routine by calling it with the <code>go</code> function:
       <pre>
-        job(someFunction);
+        go(someFunction);
       </pre>
-      
+
       You can also pass a function literal, e.g.
       <pre>
-        job(function* (x, y) {
+        go(function* (x, y) {
             var answer = x + y;
             console.log('answer=' + answer);
         });
@@ -68,17 +68,17 @@ title: JS/Pipe - coordinating asynchronous code
 
     <hr/>
 
-    <h4>Pipe</h4>
+    <h4>Chan</h4>
     <p>
-      A Pipe is created with <code>new Pipe()</code> and it provides an API for sending/receiving data between two Jobs. Pipes are
+      A channel is created with <code>new Chan()</code> and it provides an API for sending/receiving data between two routines. Channels are
       unbuffered/synchronous which has the nice effect that they combine communication (data exchange) with synchronization,
-      guaranteeing that two Jobs are in a known state at any given time.
+      guaranteeing that two routines are in a known state at any given time.
     </p>
 
     <p>
-      A Job can put data into a Pipe by calling <code>yield pipe.put('someData')</code>, and another Job can get data by calling
-      <code>yield pipe.get()</code>. The <code>yield</code> keyword causes the Job to suspend executation until another Job issues
-      an opposite request on the same Pipe. When this happens, the Jobs are said to rendezvous; they are now synchronized, and will
+      A routine can put data into a Channel by calling <code>yield chan.put('someData')</code>, and another routine can get data by calling
+      <code>yield chan.get()</code>. The <code>yield</code> keyword causes the routine to suspend executation until another routine issues
+      an opposite request on the same Channel. When this happens, the routines are said to rendezvous; they are now synchronized, and will
       each continue code execution until they reach another <code>yield</code> statement.
     </p>
 
@@ -97,64 +97,64 @@ title: JS/Pipe - coordinating asynchronous code
     <div class="row">
       <div class="col-md-6">
         <pre>
-          var pipe = new JSPipe.Pipe(),
-              timeout = JSPipe.timeout,
-              job = JSPipe.job;
+          var chan = new Routines.Chan(),
+              timeout = Routines.timeout,
+              go = Routines.go;
 
-          
-          job(function* () {
+
+          go(function* () {
               while (yield timeout(250).get()) {
-                  pipe.send(1);
-              }   
+                  chan.send(1);
+              }
           });
 
-          job(function* () {
+          go(function* () {
               while (yield timeout(1000).get()) {
-                  pipe.send(2);
+                  chan.send(2);
               }
           });
 
-          job(function* () {
+          go(function* () {
               while (yield timeout(1500).get()) {
-                  pipe.send(3);
+                  chan.send(3);
               }
           });
 
-          job(function* () {
+          go(function* () {
               var data;
-              while (data = yield pipe.get()) {
-                  console.log(data);            
+              while (data = yield chan.get()) {
+                  console.log(data);
               }
           });
         </pre>
       </div>
 
       <div class="col-md-6">
-        <p>We create a new pipe that the two jobs will use to communicate & synchronize on.</p>
-        <p><code>timeout</code>is a standard pipe that waits for the specified amount of time
-          before it puts data on the pipe, signalling to a waiting job that the time as expired.
+        <p>We create a new channel that the two routines will use to communicate & synchronize on.</p>
+        <p><code>timeout</code>is a standard channel that waits for the specified amount of time
+          before it puts data in the channel, signalling to a waiting routine that the time as expired.
         </p>
         <hr/>
 
-        <p>Now we start our first job. It runs every 250ms (<code>yield timeout(250).get()</code>),
-          sending the value "1" to the pipe. 
+        <p>Now we start our first routine. It runs every 250ms (<code>yield timeout(250).get()</code>),
+          sending the value "1" to the channel.
         </p>
 
         <hr/>
 
-        <p>Similarly, we have a second and third job, with 1000ms and 1500ms cadences respectively,
-          each sending values to the pipe.
+        <p>Similarly, we have a second and third routine, with 1000ms and 1500ms cadences respectively,
+          each sending values to the channel.
         </p>
 
         <hr/>
 
         <p>
-          The fourth job waits until it can get data from the pipe and then simply displays it to the user.
+          The fourth routine waits until it can get data from the channel and then simply displays it to the user.
         </p>
 
         <div id="eg1out" class="well"></div>
       </div>
-      
+
     </div>
 
   </div>
@@ -165,15 +165,15 @@ title: JS/Pipe - coordinating asynchronous code
   <div class="panel-heading">
     <h4>complex example</h4>
   </div>
-  
+
   <div class="panel-body">
     <p>
       Building an autocomplete search input that is responsive, efficient, and correct can be tricky.
       For a good user experience, it requires careful coordination of user input events and API requests.
     </p>
     <p>
-      This <a href="autocomplete.html">tutorial</a> shows how you can implement it very simply using Jobs and Pipes. 
-    </p>          
+      This <a href="autocomplete.html">tutorial</a> shows how you can implement it very simply using routines and channels.
+    </p>
   </div>
 </div>
 
@@ -184,7 +184,7 @@ title: JS/Pipe - coordinating asynchronous code
 
   <div class="panel-body">
     <p>
-      Get the <a href="https://github.com/jspipe/jspipe">code</a>.
+      Get the <a href="https://github.com/routines/routines">code</a>.
     </p>
   </div>
 </div>

@@ -1,4 +1,4 @@
-function main(Pipe, job, listen,  pace) {
+function main(Chan, go, listen,  pace) {
     wrapGenerator.mark(getUserSearchInput);
     wrapGenerator.mark(displaySearchResults);
     wrapGenerator.mark(search);
@@ -6,21 +6,21 @@ function main(Pipe, job, listen,  pace) {
     var input = document.getElementById('searchtext'),
         results = document.getElementById('results'),
         wikipediaUrl = 'http://en.wikipedia.org/w/api.php?action=opensearch&format=json&callback=?&search=',
-        searchRequestPipe = new Pipe(),
-        searchResultsPipe = new Pipe();
+        searchRequestChan = new Chan(),
+        searchResultsChan = new Chan();
 
-    job(search, [searchRequestPipe, searchResultsPipe]);
-    job(displaySearchResults, [searchResultsPipe]);
-    job(getUserSearchInput, [searchRequestPipe]);
+    go(search, [searchRequestChan, searchResultsChan]);
+    go(displaySearchResults, [searchResultsChan]);
+    go(getUserSearchInput, [searchRequestChan]);
 
-    function search(requestPipe, resultPipe) {
+    function search(requestChan, resultChan) {
         var searchTerm, httpRequest;
 
         return wrapGenerator(function search$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
                 $ctx.next = 2;
-                return requestPipe.get();
+                return requestChan.get();
             case 2:
                 if (!(searchTerm = $ctx.sent)) {
                     $ctx.next = 7;
@@ -30,7 +30,7 @@ function main(Pipe, job, listen,  pace) {
                 httpRequest && httpRequest.abort();
 
                 httpRequest = $.getJSON(wikipediaUrl + encodeURIComponent(searchTerm),
-                                        resultPipe.send.bind(resultPipe));
+                                        resultChan.send.bind(resultChan));
 
                 $ctx.next = 0;
                 break;
@@ -41,14 +41,14 @@ function main(Pipe, job, listen,  pace) {
         }, this);
     }
 
-    function displaySearchResults(resultPipe) {
+    function displaySearchResults(resultChan) {
         var res, lines;
 
         return wrapGenerator(function displaySearchResults$($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
                 $ctx.next = 2;
-                return resultPipe.get();
+                return resultChan.get();
             case 2:
                 if (!(res = $ctx.sent)) {
                     $ctx.next = 7;
@@ -70,7 +70,7 @@ function main(Pipe, job, listen,  pace) {
         }, this);
     }
 
-    function getUserSearchInput(requestPipe) {
+    function getUserSearchInput(requestChan) {
         var pacedKeyup, evt, text, previousText, minLength;
 
         return wrapGenerator(function getUserSearchInput$($ctx) {
@@ -90,7 +90,7 @@ function main(Pipe, job, listen,  pace) {
                 minLength = text.length > 2;
 
                 if (minLength && text !== previousText) {
-                    requestPipe.send(text);                
+                    requestChan.send(text);
                 } else if (!minLength) {
                     results.innerHTML = '';
                 }
@@ -106,4 +106,4 @@ function main(Pipe, job, listen,  pace) {
     }
 };
 
-main(JSPipe.Pipe, JSPipe.job, JSPipe.listen, JSPipe.pace);
+main(Routines.Chan, Routines.go, Routines.listen, Routines.pace);

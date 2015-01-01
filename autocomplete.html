@@ -1,11 +1,11 @@
 ---
 layout: page
-title: Autcomplete example using JS/Pipe
+title: Autcomplete example using Routines
 ---
 
 <div class="jumbotron">
   <h3>Tutorial ~ coordinating user input events and HTTP requests</h3>
-  
+
   <p class="lead">
     It can be tricky to write an efficient and correct program with good
     user interaction if that program must coordinate multiple asynchronous
@@ -15,7 +15,7 @@ title: Autcomplete example using JS/Pipe
   <p>
     For example, to build a good autocomplete search field for Wikipedia, you
     want results to display as the user types, but not make unnecessary
-    network requests. 
+    network requests.
   </p>
 
   <div class="well well-lg">
@@ -71,7 +71,7 @@ title: Autcomplete example using JS/Pipe
       keyup(function(event) {
           $.getJSON(searchUrl + input.text, function(data) {
               displayResults(data);
-          });        
+          });
       });
     </pre>
 
@@ -86,7 +86,7 @@ title: Autcomplete example using JS/Pipe
 
 <div id="solution" class="panel panel-primary">
   <div class="panel-heading">
-    <h4>model the problem using Jobs and Pipes</h4>
+    <h4>model the problem using Channels and Routines</h4>
   </div>
 
   <div class="panel-body">
@@ -98,11 +98,11 @@ title: Autcomplete example using JS/Pipe
         <li>displaying autocomplete results</li>
       </ul>
     </p>
-    
+
     <p>
-      We can then model the problem idiomatically using Jobs and Pipes provided by <a href="https://github.com/jspipe/jspipe">JS/Pipe</a>.
+      We can then model the problem idiomatically using Routines and Channels provided by <a href="https://github.com/routines/routines">Routines</a>.
     </p>
-    
+
 
     <hr/>
 
@@ -110,19 +110,19 @@ title: Autcomplete example using JS/Pipe
     <div class="row">
       <div class="col-md-8">
         <pre>
-function main(Pipe, job, listen,  pace) {
-          
+function main(Chan, go, listen,  pace) {
+
    var input = document.getElementById('searchtext'),
        results = document.getElementById('results'),
        wikipediaUrl = 'http://en.wikipedia.org/w/api.php' +
                       '?action=opensearch&format=json' +
                       '&callback=?&search=',
-       searchRequestPipe = new Pipe(),
-       searchResultsPipe = new Pipe();
+       searchRequestChan = new Chan(),
+       searchResultsChan = new Chan();
         </pre>
       </div>
       <div class="col-md-4">
-        We wil use two pipes to exchange data and synchronize between jobs.
+        We wil use two channels to exchange data and synchronize between routines.
       </div>
 
     </div>
@@ -130,28 +130,28 @@ function main(Pipe, job, listen,  pace) {
     <div class="row">
       <div class="col-md-8">
         <pre>
-job(search, [searchRequestPipe, searchResultsPipe]);
-job(displaySearchResults, [searchResultsPipe]);
-job(getUserSearchInput, [searchRequestPipe]);
+go(search, [searchRequestChan, searchResultsChan]);
+go(displaySearchResults, [searchResultsChan]);
+go(getUserSearchInput, [searchRequestChan]);
         </pre>
       </div>
       <div class="col-md-4">
-        Kick off three concurrent jobs: <code>search</code>, <code>displaySearchResults</code>, and <code>getUserSearchInput</code>.
+        Kick off three concurrent routines: <code>search</code>, <code>displaySearchResults</code>, and <code>getUserSearchInput</code>.
       </div>
     </div>
 
     <div class="row">
       <div class="col-md-8">
         <pre>
-function* search(requestPipe, resultPipe) {
+function* search(requestChan, resultChan) {
     var searchTerm,
         req;
-          
-     while (searchTerm = yield requestPipe.get()) {
+
+     while (searchTerm = yield requestChan.get()) {
          req && req.abort();
          req = $.getJSON(wikipediaUrl +
          encodeURIComponent(searchTerm),
-         resultPipe.send.bind(resultPipe));
+         resultChan.send.bind(resultChan));
      }
 }
         </pre>
@@ -159,30 +159,30 @@ function* search(requestPipe, resultPipe) {
 
       <div class="col-md-4">
         <p>
-          The search job is simple: get the search term from the <code>requestPipe</code> and
-          search Wikipedia. The result is sent to the <code>resultPipe</code>.
+          The search routine is simple: get the search term from the <code>requestChannel</code> and
+          search Wikipedia. The result is sent to the <code>resultChannel</code>.
         </p>
-        
+
         <p>
           If there is an existing request in flight, abort it. This ensures that
           we always display the result for the last search term.
         </p>
-        
+
       </div>
 
     </div>
 
     <div class="row">
       <div class="col-md-8">
-        <pre>                
-function* displaySearchResults(resultPipe) {
+        <pre>
+function* displaySearchResults(resultChan) {
     var res,
         lines;
-          
-    while (res = yield resultPipe.get()) {
+
+    while (res = yield resultChan.get()) {
         lines = res.error && ['&lth1&gt' + res.error + '&lt/h1&gt'] ||
                 res[0] && res[1];
-          
+
         results.innerHTML = lines.map(function(line) {
             return '&ltp&gt' + line + '&lt/p&gt';
          }).join('');
@@ -193,27 +193,27 @@ function* displaySearchResults(resultPipe) {
 
       <div class="col-md-4">
         Displaying search results is also straightforward: we grab results
-        from the <code>resultPipe</code> and display it on the web page.
+        from the <code>resultChan</code> and display it on the web page.
       </div>
-      
+
     </div>
 
     <div class="row">
       <div class="col-md-8">
         <pre>
-function* getUserSearchInput(requestPipe) {
+function* getUserSearchInput(requestChan) {
     var keyup = pace(300, listen(input, 'keyup')),
         evt,
         text,
         previousText,
         minLength;
-          
+
     while (evt = yield keyup.get()) {
         text = evt.target.value;
         minLength = text.length > 2;
 
         if (minLength && text !== previousText) {
-            requestPipe.send(text);                
+            requestChan.send(text);
         } else if (!minLength) {
             results.innerHTML = '';
         }
@@ -226,21 +226,21 @@ function* getUserSearchInput(requestPipe) {
 
       <div class="col-md-4">
         <p>
-          To get user input, we create a pipe that listens for keyup events from the text box.
-        </p>
-        
-        <p>
-          To avoid getting bombarded when the user types fast (faster than 300ms between keystrokes),
-          we pace the data coming in on the <code>keyup</code> pipe.
+          To get user input, we create a channel that listens for keyup events from the text box.
         </p>
 
         <p>
-          Before sending the text to the <code>requestPipe</code>, we check that the text is at
+          To avoid getting bombarded when the user types fast (faster than 300ms between keystrokes),
+          we pace the data coming in on the <code>keyup</code> channel.
+        </p>
+
+        <p>
+          Before sending the text to the <code>requestChan</code>, we check that the text is at
           least two characters long and that it isn't the same text we previously processed.
         </p>
-        
+
       </div>
-      
+
     </div>
 
     <div class="row">
@@ -248,22 +248,22 @@ function* getUserSearchInput(requestPipe) {
         <pre>
 };
 
-main(JSPipe.Pipe, JSPipe.job, JSPipe.listen, JSPipe.pace);
+main(Routines.Chan, Routines.go, Routines.listen, Routines.pace);
         </pre>
       </div>
 
     </div>
 
     <hr/>
-    
+
     <p>
-      You can see the full source <a href="https://github.com/jspipe/jspipe.github.io/blob/master/autocomplete.js">here</a>.
+      You can see the full source <a href="https://github.com/routines/routines.github.io/blob/master/autocomplete.js">here</a>.
     </p>
 
 
   </div>
-  
-  
+
+
 </div>
 
 <script src="autocomplete.es5.js"></script>

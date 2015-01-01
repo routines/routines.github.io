@@ -1,4 +1,4 @@
-function main(Pipe, job, timeout) {
+function main(Chan, go, timeout) {
 
     function render(q) {
         return q.map(function(p) {
@@ -11,13 +11,13 @@ function main(Pipe, job, timeout) {
             res = len > n ? array.slice(len - n) : array;
         return res;
     }
-    
+
     // Eg 1
     (function() {
-        var pipe = new Pipe(),
+        var chan = new Chan(),
             out = document.getElementById('eg1out');
 
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
@@ -29,7 +29,7 @@ function main(Pipe, job, timeout) {
                         break;
                     }
 
-                    pipe.send(1);
+                    chan.send(1);
                     $ctx.next = 0;
                     break;
                 case 6:
@@ -39,7 +39,7 @@ function main(Pipe, job, timeout) {
             }, this);
         }));
 
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
@@ -51,7 +51,7 @@ function main(Pipe, job, timeout) {
                         break;
                     }
 
-                    pipe.send(2);
+                    chan.send(2);
                     $ctx.next = 0;
                     break;
                 case 6:
@@ -61,7 +61,7 @@ function main(Pipe, job, timeout) {
             }, this);
         }));
 
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
@@ -73,7 +73,7 @@ function main(Pipe, job, timeout) {
                         break;
                     }
 
-                    pipe.send(3);
+                    chan.send(3);
                     $ctx.next = 0;
                     break;
                 case 6:
@@ -84,7 +84,7 @@ function main(Pipe, job, timeout) {
         }));
 
 
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             var data, newItem;
 
             return wrapGenerator(function($ctx) {
@@ -93,7 +93,7 @@ function main(Pipe, job, timeout) {
                     data = [];
                 case 1:
                     $ctx.next = 3;
-                    return pipe.get();
+                    return chan.get();
                 case 3:
                     if (!(newItem = $ctx.sent)) {
                         $ctx.next = 9;
@@ -111,10 +111,10 @@ function main(Pipe, job, timeout) {
                 }
             }, this);
         }));
-        
+
     })();
 
 }
 
 
-main(JSPipe.Pipe, JSPipe.job, JSPipe.timeout);
+main(Routines.Chan, Routines.go, Routines.timeout);

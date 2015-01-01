@@ -1,7 +1,7 @@
 (function(global) {
-if (global.JSPipe) { return; }
-// JSPipe is free software distributed under the terms of the MIT license reproduced here.
-// JSPipe may be used for any purpose, including commercial purposes, at absolutely no cost.
+if (global.Routines) { return; }
+// Routines is free software distributed under the terms of the MIT license reproduced here.
+// Routines may be used for any purpose, including commercial purposes, at absolutely no cost.
 // No paperwork, no royalties, no GNU-like "copyleft" restrictions, either.
 // Just download it and use it.
 
@@ -38,12 +38,12 @@ function isGeneratorFunction(fn) {
 }
 
 /**
- * Kick off a job. A job runs concurrently with other jobs.
+ * Kick off a routing. A routin runs concurrently with other routines.
  *
- * To communicate and synchronize with another job, communicate via a
- * Pipe.
+ * To communicate and synchronize with another routine, communicate via a
+ * Channel.
  */
-function job(fn, args) {
+function go(fn, args) {
     var generator,
         next;
 
@@ -70,30 +70,30 @@ function job(fn, args) {
 }
 
 /**
- * A pipe provides a way for two jobs to communicate data + synchronize their execution.
+ * A channel provides a way for two routines to communicate data + synchronize their execution.
  *
- * One job can send data by calling "yield pipe.put(data)" and another job can
- * receive data by calling "yield pipe.get()".
+ * One routine can send data by calling "yield chan.put(data)" and another routine can
+ * receive data by calling "yield chan.get()".
  */
-function Pipe() {
+function Chan() {
     this.syncing = false;
     this.inbox = [];
     this.outbox = [];
     this.isOpen = true;
 }
 
-Pipe.prototype.close = function() {
+Chan.prototype.close = function() {
     this.isOpen = false;
 };
 
 /**
- * Call "yield pipe.put(data)" from a job (the sender) to put data in the pipe.
+ * Call "yield chan.put(data)" from a routine (the sender) to put data in the channel.
  *
- * The put method will then try to rendezvous with a receiver job, if any.
+ * The put method will then try to rendezvous with a receiver routine, if any.
  * If there is no receiver waiting for data, the sender will pause until another
- * job calls "yield pipe.get()", which will then trigger a rendezvous.
+ * routine calls "yield chan.get()", which will then trigger a rendezvous.
  */
-Pipe.prototype.put = function(data) {
+Chan.prototype.put = function(data) {
     var self = this;
     return function(resume) {
         self.inbox.push(data, resume);
@@ -102,19 +102,19 @@ Pipe.prototype.put = function(data) {
     };
 };
 
-Pipe.prototype.waiting = function() {
+Chan.prototype.waiting = function() {
     return this.outbox.length;
 };
 
 /**
- * Call "yield pipe.get()" from a job (the receiver) to get data from the pipe.
+ * Call "yield chan.get()" from a routine (the receiver) to get data from the channel.
  *
- * The get method will then try to rendezvous with a sender job, if any.
+ * The get method will then try to rendezvous with a sender routine, if any.
  * If there is no sender waiting for the data it sent to be delivered, the receiver will
- * pause until another job calls "yield pipe.put(data)", which will then trigger
+ * pause until another routine calls "yield chan.put(data)", which will then trigger
  * a rendezvous.
  */
-Pipe.prototype.get = function() {
+Chan.prototype.get = function() {
     var self = this;
     return function(resume) {
         self.outbox.push(resume);
@@ -123,25 +123,25 @@ Pipe.prototype.get = function() {
     };
 };
 
-Pipe.prototype.send = function(message) {
+Chan.prototype.send = function(message) {
     this.put(message)();
 };
 
 
 /**
- * A pipe is a rendezvous point for two otherwise independently executing jobs.
- * Such communication + synchronization on a pipe requires a sender and receiver.
+ * A channel is a rendezvous point for two otherwise independently executing routines.
+ * Such communication + synchronization on a channel requires a sender and receiver.
  *
- * A job sends data to a pipe using "yield pipe.put(data)".
- * Another job receives data from a pipe using "yield pipe.get()".
+ * A routine sends data to a channel using "yield chan.put(data)".
+ * Another routine receives data from a channel using "yield chan.get()".
  *
- * Once both a sender job and a receiver job are waiting on the pipe,
- * the _rendezvous method transfers the data in the pipe to the receiver and consequently
- * synchronizes the two waiting jobs.
+ * Once both a sender routine and a receiver routine are waiting on the channel,
+ * the _rendezvous method transfers the data in the channel to the receiver and consequently
+ * synchronizes the two waiting routines.
  *
- * Once synchronized, the two jobs continue execution.
+ * Once synchronized, the two routines continue execution.
  */
-Pipe.prototype._rendezvous = function() {
+Chan.prototype._rendezvous = function() {
     var syncing = this.syncing,
         inbox = this.inbox,
         outbox = this.outbox,
@@ -158,14 +158,14 @@ Pipe.prototype._rendezvous = function() {
         while ((senderWaiting = inbox.length > 0) &&
                (receiverWaiting = outbox.length > 0)) {
 
-            // Get the data that the sender job put in the pipe
+            // Get the data that the sender routine put in the channel
             data = inbox.shift();
 
             // Get the method to notify the sender once the data has been
-            // delivered to the receiver job
+            // delivered to the receiver routine
             notify = inbox.shift();
 
-            // Get the method used to send the data to the receiver job.
+            // Get the method used to send the data to the receiver routine.
             send = outbox.shift();
 
             // Send the data
@@ -182,9 +182,9 @@ Pipe.prototype._rendezvous = function() {
 };
 
 
-function EventPipe(el, type, handler) {
+function EventChan(el, type, handler) {
     // super
-    Pipe.call(this);
+    Chan.call(this);
 
     this._el = el;
     this._type = type;
@@ -192,30 +192,30 @@ function EventPipe(el, type, handler) {
     el.addEventListener(type, handler);
 }
 
-EventPipe.prototype = Object.create(Pipe.prototype);
+EventChan.prototype = Object.create(Chan.prototype);
 
-EventPipe.prototype.close = function() {
+EventChan.prototype.close = function() {
     this._el.removeEventListener(this._type, this._handler);
     delete this._el;
     delete this._type;
     delete this._handler;
     // super
-    Pipe.prototype.close.call(this);
+    Chan.prototype.close.call(this);
 };
 
 
 
 ///
-/// Pipe producers
+/// Channel producers
 ///
 
 
 function timeout(ms, interruptor) {
     // TODO: model timeout as a process
-    var output = new Pipe();
+    var output = new Chan();
 
     setTimeout(function() {
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
@@ -241,14 +241,14 @@ function listen(el, type, preventDefault) {
         output.send(e);
     };
 
-    var output = new EventPipe(el, type, handler);
+    var output = new EventChan(el, type, handler);
     return output;
 }
 
 function jsonp(url, id) {
-    var output = new Pipe();
+    var output = new Chan();
     $.getJSON(url, function(data) {
-        job(wrapGenerator.mark(function() {
+        go(wrapGenerator.mark(function() {
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
@@ -268,8 +268,8 @@ function jsonp(url, id) {
 
 
 function lazyseq(count, fn) {
-    var output = new Pipe();
-    job(wrapGenerator.mark(function() {
+    var output = new Chan();
+    go(wrapGenerator.mark(function() {
         var data, i;
 
         return wrapGenerator(function($ctx) {
@@ -304,14 +304,14 @@ function lazyseq(count, fn) {
 }
 
 ///
-/// Pipe transformers
+/// Channel transformers
 ///
 
 
-function unique(pipe) {
-    var output = new Pipe();
+function unique(chan) {
+    var output = new Chan();
 
-    job(wrapGenerator.mark(function() {
+    go(wrapGenerator.mark(function() {
         var isFirstData, data, lastData;
 
         return wrapGenerator(function($ctx) {
@@ -319,13 +319,13 @@ function unique(pipe) {
             case 0:
                 isFirstData = true;
             case 1:
-                if (!pipe.isOpen) {
+                if (!chan.isOpen) {
                     $ctx.next = 12;
                     break;
                 }
 
                 $ctx.next = 4;
-                return pipe.get();
+                return chan.get();
             case 4:
                 data = $ctx.sent;
 
@@ -354,10 +354,10 @@ function unique(pipe) {
     return output;
 }
 
-function pace(ms, pipe) {
-    var output = new Pipe();
+function pace(ms, chan) {
+    var output = new Chan();
 
-    job(wrapGenerator.mark(function() {
+    go(wrapGenerator.mark(function() {
         var timeoutId, data, send;
 
         return wrapGenerator(function($ctx) {
@@ -365,13 +365,13 @@ function pace(ms, pipe) {
             case 0:
                 send = function(data) { output.send(data); };
             case 1:
-                if (!pipe.isOpen) {
+                if (!chan.isOpen) {
                     $ctx.next = 9;
                     break;
                 }
 
                 $ctx.next = 4;
-                return pipe.get();
+                return chan.get();
             case 4:
                 data = $ctx.sent;
                 clearTimeout(timeoutId);
@@ -390,15 +390,15 @@ function pace(ms, pipe) {
     return output;
 }
 
-function delay(pipe, ms) {
-    var output = new Pipe();
-    job(wrapGenerator.mark(function() {
+function delay(chan, ms) {
+    var output = new Chan();
+    go(wrapGenerator.mark(function() {
         var data;
 
         return wrapGenerator(function($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
-                if (!pipe.isOpen) {
+                if (!chan.isOpen) {
                     $ctx.next = 9;
                     break;
                 }
@@ -407,7 +407,7 @@ function delay(pipe, ms) {
                 return timeout(ms).get();
             case 3:
                 $ctx.next = 5;
-                return pipe.get();
+                return chan.get();
             case 5:
                 data = $ctx.sent;
                 output.send(data);
@@ -425,25 +425,25 @@ function delay(pipe, ms) {
 
 
 ///
-/// Pipe coordination
+/// Channel coordination
 ///
 
 function select(cases) {
     // TODO: consider rewriting as a sweetjs macro
-    var output = new Pipe(),
-        done = new Pipe(),
+    var output = new Chan(),
+        done = new Chan(),
         remaining = cases.length;
 
     cases.forEach(function(item) {
-        job(wrapGenerator.mark(function() {
-            var pipe, response, data;
+        go(wrapGenerator.mark(function() {
+            var chan, response, data;
 
             return wrapGenerator(function($ctx) {
                 while (1) switch ($ctx.next) {
                 case 0:
-                    pipe = item.pipe, response = item.response;
+                    chan = item.chan, response = item.response;
                     $ctx.next = 3;
-                    return pipe.get();
+                    return chan.get();
                 case 3:
                     data = $ctx.sent;
                     response(data);
@@ -457,7 +457,7 @@ function select(cases) {
         }));
     });
 
-    job(wrapGenerator.mark(function() {
+    go(wrapGenerator.mark(function() {
         return wrapGenerator(function($ctx) {
             while (1) switch ($ctx.next) {
             case 0:
@@ -491,10 +491,10 @@ function range() {
 }
 
 
-global.JSPipe = {
-    job: job,
-    Pipe: Pipe,
-    EventPipe: EventPipe,
+global.Routines = {
+    go: go,
+    Chan: Chan,
+    EventChan: EventChan,
     timeout: timeout,
     listen: listen,
     jsonp: jsonp,

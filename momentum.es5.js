@@ -1,4 +1,4 @@
-function main(job, Pipe, listen) {
+function main(go, Chan, listen) {
     wrapGenerator.mark(endingTouch);
     wrapGenerator.mark(touchmoving);
     wrapGenerator.mark(startingTouchOnBall);
@@ -10,9 +10,9 @@ function main(job, Pipe, listen) {
         ballWidth = ball.clientWidth,
         ballHeight = ball.clientHeight,
         pointerIsDown = false,
-        touchmovePipe = listen(document, 'touchmove', true),
-        pointermovePipe = new Pipe(),
-        throwPipe = new Pipe(),
+        touchmoveChan = listen(document, 'touchmove', true),
+        pointermoveChan = new Chan(),
+        throwChan = new Chan(),
         timeSpaceSamples = [],
         sampleSize = 4,
         throwDistance = 100,
@@ -26,7 +26,7 @@ function main(job, Pipe, listen) {
             while (1) switch ($ctx.next) {
             case 0:
                 $ctx.next = 2;
-                return pointermovePipe.get();
+                return pointermoveChan.get();
             case 2:
                 if (!(evt = $ctx.sent)) {
                     $ctx.next = 10;
@@ -61,7 +61,7 @@ function main(job, Pipe, listen) {
             while (1) switch ($ctx.next) {
             case 0:
                 $ctx.next = 2;
-                return throwPipe.get();
+                return throwChan.get();
             case 2:
                 if (!(velocity = $ctx.sent)) {
                     $ctx.next = 8;
@@ -102,14 +102,14 @@ function main(job, Pipe, listen) {
 
             ball.style.webkitTransitionDuration = duration || 16;
             ball.style.webkitTransitionTimingFunction = ease || 'ease-out';
-        
-            ball.style.webkitTransform = 
-                'translateX(' + (x) + 
+
+            ball.style.webkitTransform =
+                'translateX(' + (x) +
                 'px) translateY(' + (y) + 'px)';
-        
+
             currentPosition = { x: x, y: y };
         }
-        
+
     }
 
     function startingTouchOnBall() {
@@ -153,7 +153,7 @@ function main(job, Pipe, listen) {
             while (1) switch ($ctx.next) {
             case 0:
                 $ctx.next = 2;
-                return touchmovePipe.get();
+                return touchmoveChan.get();
             case 2:
                 if (!(evt = $ctx.sent)) {
                     $ctx.next = 7;
@@ -163,7 +163,7 @@ function main(job, Pipe, listen) {
                 touch = evt.touches[0];
 
                 if (touch.target === ball) {
-                    pointermovePipe.send(touch);
+                    pointermoveChan.send(touch);
                 }
 
                 $ctx.next = 0;
@@ -193,13 +193,13 @@ function main(job, Pipe, listen) {
 
                 if (pointerIsDown) {
                     pointerIsDown = false;
-                    
+
                     oldestSample = timeSpaceSamples[0];
                     newestSample = timeSpaceSamples[timeSpaceSamples.length - 1];
                     duration = newestSample.time - oldestSample.time;
                     xDirection = (newestSample.x - oldestSample.x) < 0 ? -1 : 1;
                     yDirection = (newestSample.y - oldestSample.y) < 0 ? -1 : 1;
-                    
+
                     velocity = {
                         x: (newestSample.x - oldestSample.x) / (duration/2),
                         y: (newestSample.y - oldestSample.y) / (duration/2),
@@ -207,7 +207,7 @@ function main(job, Pipe, listen) {
                         yDirection: yDirection
                     };
 
-                    throwPipe.send(velocity);
+                    throwChan.send(velocity);
                 }
 
                 $ctx.next = 1;
@@ -219,13 +219,13 @@ function main(job, Pipe, listen) {
         }, this);
     }
 
-    job(draggingBall);
-    job(throwingBall);
-    job(bouncingBall);
-    job(touchmoving);
-    job(startingTouchOnBall);
-    job(endingTouch);
+    go(draggingBall);
+    go(throwingBall);
+    go(bouncingBall);
+    go(touchmoving);
+    go(startingTouchOnBall);
+    go(endingTouch);
 }
 
 
-main(JSPipe.job, JSPipe.Pipe, JSPipe.listen);
+main(Routines.go, Routines.Chan, Routines.listen);
